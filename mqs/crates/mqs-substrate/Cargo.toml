@@ -1,0 +1,10 @@
+[package]
+name = "mqs-substrate"
+version = "0.1.0"
+edition = "2021"
+description = "MQS Physical Layer: Topological Hamiltonian growth + ER=EPR bridge engine"
+license = "MIT"
+
+[dependencies]
+
+[workspace]

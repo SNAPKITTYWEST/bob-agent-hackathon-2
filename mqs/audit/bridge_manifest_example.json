@@ -1,0 +1,19 @@
+{
+  "manifest_id": "ER_BRIDGE_GROWTH_2026_001",
+  "bridge_id": "ER-BRIDGE-FIB-0042",
+  "substrate": "Fibonacci Anyon (SU(2)_3)",
+  "endpoints": {
+    "particle_a": { "coord": [100, 200, 5], "charge": "tau" },
+    "particle_b": { "coord": [100, 200, 5000], "charge": "tau_star" }
+  },
+  "apparent_distance_nm": 4995,
+  "effective_distance": 0.0,
+  "fusion_channel": "Vacuum (1)",
+  "entanglement_entropy": "0.9624236501192069 (log(phi^2))",
+  "ryu_takayanagi_verified": true,
+  "modular_hamiltonian_hash": "sha256:0x...",
+  "traversability_status": "GAO_JAFFERIS_WALL_PROTOCOL_READY",
+  "operator_note": "Einstein-Rosen Bridge grown. Rosen commented news (Modular Flow) connected underneath apparent distance.",
+  "worm_anchor": "txid:0x...",
+  "er_epr_theorem": "ER = EPR: fusion channel (vacuum) is the wormhole throat. Apparent distance 4995nm, effective distance 0.0. Topology decoupled from geometry."
+}
