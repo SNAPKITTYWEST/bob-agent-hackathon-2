@@ -1,99 +1,77 @@
-# Sovereign Voxel Civilization Engine
+# Sovereign Voxel Civilization — Rust Engine
 
-A DeepMind-inspired neural-symbolic hybrid simulation framework implementing autonomous emergent civilization building across a 3D voxel grid with dynamic cryptographic minefield topology.
+The Rust core of the BOB Agent Hackathon 2.0 simulation. Handles the high-performance
+side: sparse voxel storage, agent execution, minefield physics, cryptographic ledger,
+and the 5-stage pipeline that runs every agent tick.
 
-## Architecture Overview
+Works standalone or as the backend for the Python quantum layer above it.
 
-### Core Paradigm
-- **World Model**: Spatial-Latent predictive coding network
-- **Agent Framework**: Multi-Agent Reinforcement Learning (MARL)
-- **Physics**: Neural-symbolic hybrid simulation
-- **Determinism**: Cryptographic bit-for-bit replay via seed chaining
+---
 
-### System Constraints
-- **Entropy Bound**: H ≤ 0.20
-- **Memory Model**: Externalized WORM spatial ledger
-- **Determinism**: Strict cryptographic replay capability
+## What's in here
 
-## Components
+### World (`src/world/octree.rs`)
+Sparse voxel octree over a 1024×256×1024 grid. Only occupied nodes are stored.
+Each voxel carries density, material ID, hazard potential, owner agent UUID, and a
+SHA-3 hash of its current state. Spatial queries and radius searches run in O(log N).
 
-### 1. World Model (`src/world/`)
-- **3D Sparse Voxel Octree**: 1024×256×1024 grid
-- **Voxel Attributes**:
-  - Density (float32)
-  - Material ID (uint16)
-  - Hazard Potential (probability distribution)
-  - Owner Agent ID (UUID v4)
-- **Latent Dynamics**: Predictive coding network for environmental forecasting
+### Agents (`src/agents/agent.rs`)
+Three roles, one base type. Pioneer maximizes new voxels discovered. Architect
+maximizes structure stability. Sentinel minimizes hazard encounters. All three share
+the same POMDP belief state structure — role-specific reward shaping produces
+the specialization, not separate code paths.
 
-### 2. Agent Swarm (`src/agents/`)
-Three specialized agent roles:
-- **Pioneer**: Exploration, spatial mapping, active inference probing
-- **Architect**: Structure compilation, resource consolidation, macro-layout planning
-- **Sentinel**: Minefield detection, threat mitigation, trust-deed enforcement
+### Minefield (`src/hazards/minefield.rs`)
+Mines trigger on volume intersection with high-entropy voxels. When triggered:
+state energy drops proportional to hazard potential, past N ledger entries get slashed,
+neighboring voxels suffer structural collapse with probability Φ(h).
+Density redistributes every 10 ticks via simulated annealing toward high-activity zones.
 
-**Architecture**:
-- Perception: Local 3D frustum raycasting + latent embedding encoder
-- Reasoning: Jordan-gated transition functions with Gumbel-Softmax action selection
-- Coordination: Decentralized POMDP via shared mmap message passing
+### Ledger (`src/ledger/state_ledger.rs`)
+WORM append-only log. Every state transition is Ed25519-signed. Merkle tree integrity
+check on every block commit. Deterministic replay from genesis seed via ChaCha20 RNG —
+same seed, same simulation, bit for bit.
 
-### 3. Minefield Physics (`src/hazards/`)
-- **Trigger Mechanics**: Volume intersection with high-entropy voxel nodes
-- **Consequences**: State vaporization, ledger slash, structural collapse
-- **Adaptive Density**: Dynamic redistribution via simulated annealing
-- **Probabilistic Obscurity**: Non-linear noise masking requiring multi-agent consensus
+### Pipeline (`src/pipeline/execution.rs`)
+Five stages per agent per tick:
+1. Perceive — 3D frustum raycasting, update latent world model
+2. Predict — compute prediction error, evaluate epistemic value
+3. Filter — NAND safety constraints + trust-deed verification
+4. Execute — atomic voxel mutation (build / mine / navigate / fortify)
+5. Commit — sign and append state transition to ledger
 
-### 4. Execution Pipeline (`src/pipeline/`)
-1. Perceive local spatial tensor and update latent world model
-2. Compute prediction error and evaluate epistemic value
-3. Filter actions through NAND-based safety and trust-deed constraints
-4. Execute atomic voxel mutation (build, mine, navigate, fortify)
-5. Commit state transition and cryptographic proof to immutable audit chain
+### Perception (`src/perception/raycasting.rs`)
+DDA algorithm for 3D frustum raycasting. 90° horizontal, 60° vertical FOV.
+32×24 rays per frame, max range 64 voxels.
 
-### 5. Cryptographic Ledger (`src/ledger/`)
-- WORM (Write-Once-Read-Many) spatial state storage
-- Deterministic replay via seed chaining
-- Immutable audit trail for all state transitions
+### Reasoning (`src/reasoning/gumbel_softmax.rs`)
+Gumbel-Softmax discrete action selection with temperature annealing.
+τ = max(0.5, 1.0 − 0.001·t). Lower temperature as training progresses.
 
-## Technology Stack
+---
 
-- **Language**: Rust (performance-critical components) + Python (ML/RL training)
-- **ML Framework**: PyTorch for neural networks
-- **Spatial Indexing**: Custom octree implementation
-- **Cryptography**: SHA-3, Ed25519 signatures
-- **Visualization**: WebGPU-based 3D renderer
+## Build and run
 
-## Project Structure
-
-```
-sovereign-voxel-civilization/
-├── src/
-│   ├── world/           # Voxel octree and world model
-│   ├── agents/          # MARL agent implementations
-│   ├── hazards/         # Minefield physics engine
-│   ├── ledger/          # Cryptographic state ledger
-│   ├── pipeline/        # Execution pipeline
-│   ├── perception/      # Raycasting and encoding
-│   ├── reasoning/       # Decision-making modules
-│   └── visualization/   # 3D rendering
-├── models/              # Trained neural network weights
-├── configs/             # Simulation configurations
-├── tests/               # Unit and integration tests
-└── examples/            # Example simulations
+```bash
+cargo build --release
+cargo run --release --bin svc-simulator 1000   # 1000 ticks
+cargo test
+cargo run --release --example basic_simulation
 ```
 
-## Getting Started
+---
 
-See `QUICKSTART.md` for installation and usage instructions.
+## Entropy bound
 
-## Research Context
+`H ≤ 0.20` is enforced at the pipeline gate. Agents whose actions would push system
+entropy above the bound are blocked before execution. This matches the constraint from
+the Python quantum layer and the Lean 4 formal proof in `../formal/`.
 
-This implementation draws from:
-- DeepMind's spatial-latent world models
-- Multi-agent reinforcement learning research
-- Neural-symbolic integration techniques
-- Cryptographic state machine design
+---
 
-## License
+## Notes
 
-MIT License - See LICENSE file for details
+- No PyTorch, no neural network weights — reasoning is rule-based + Gumbel sampling.
+  The architecture is designed to run on hardware without ML dependencies.
+- `Cargo.lock` is committed so builds are reproducible.
+- `[workspace]` table in `Cargo.toml` isolates this from the parent repo's workspace.

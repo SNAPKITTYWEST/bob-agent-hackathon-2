@@ -1,80 +1,120 @@
-# Quantum Living World
+# BOB Agent Hackathon 2.0 — Quantum Voxel Civilization
 
-**A biomimetic quantum simulation engine that synthesizes living agent behavior through 4-layer integration of NASM x86-64 machine code, IBM Granite LLM reasoning, quantum state evolution, and multi-agent orchestration.**
+Built by Ahmad Ali Parr × SnapKitty for IBM Bob 2.0 Hackathon, August 2026.
 
-## What It Does
-
-Quantum Living World brings agents to life by embedding intentional cognition into quantum superposition. A 3D voxel lattice represents a shared world where agents emerge, perceive, reason, and interact—all behavior encoded in quantum gates compiled to native machine code, guided by IBM Granite LLM cognition models, and verified through an immutable ledger.
-
-The system demonstrates:
-- **Layer 1:** Quantum gate compilation from operator algebra to x86-64 SIMD instructions
-- **Layer 2:** IBM Granite LLM agent perception, memory, and goal-setting
-- **Layer 3:** Adaptive Operator Quantum Dissipation (AOQD) world physics
-- **Layer 4:** Multi-agent lifecycle, learning, and WORM-sealed record-keeping
-
-## Quick Start
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Compile NASM quantum gates to x86-64 object files
-cd assembly && make && cd ..
-
-# Run the simulation
-python quantum-world/main.py
-
-# Expected output: Voxel lattice tick, agent populations, fitness metrics
-```
-
-## Technology Stack
-
-| Layer | Tech | Purpose |
-|-------|------|---------|
-| 1 | NASM x86-64 + SSE/AVX2 | Quantum gate execution |
-| 2 | IBM Granite 8B/34B (Bedrock) | Agent cognition |
-| 3 | NumPy/SciPy + Lindblad | Quantum state evolution |
-| 4 | Python + Ed25519/Blake3 | Agent orchestration + WORM ledger |
-
-## Key Features
-
-- **Quantum Agents:** Agents represented as entangled voxel states; measurement collapse instantiates phenotypes
-- **Cognition Loop:** Granite LLM reasoning over agent perception (niche, neighbors, memory) drives behavior
-- **Deterministic Chaos:** Seeded randomness ensures reproducible multi-run validation
-- **Immutable History:** All events recorded to WORM ledger (append-only, Blake3-signed)
-- **Native Execution:** Gate sequences compiled to x86-64 for 100x speedup on voxel updates
-- **Zero Blockchain:** No tokens, no NFTs—cryptography only (Ed25519, Blake3)
-
-## Architecture
-
-See `docs/ARCHITECTURE.md` for full 4-layer design, data flow, and tech stack details. ASCII diagram included.
-
-## Project Structure
-
-```
-ibm-bob-2.0-hackathon/
-├── assembly/              # NASM x86-64 quantum gate kernels
-├── quantum-world/         # Python simulation engine
-│   ├── engine/            # Quantum physics + Granite integration
-│   ├── agents/            # Agent lifecycle & cognition
-│   ├── aoqd/              # Lindblad master equation solver
-│   └── tools/             # Utilities (voxel, agents, ledger)
-├── docs/ARCHITECTURE.md   # Full technical design
-└── requirements.txt       # Python dependencies
-```
-
-## Development
-
-Built with IBM Bob 2.0 for full codebase context during hackathon. Every file and design decision tracked and assisted.
-
-## Team
-
-SnapKitty — quantum formalization + sovereign runtime engineering
-
-## License
-
-MIT
+This is a sovereign multi-agent simulation: autonomous agents build, explore, and survive
+across a 3D quantum voxel world. The simulation runs from a deterministic seed, commits
+every state transition to a cryptographic ledger, and enforces safety constraints through
+NAND logic and trust-deed verification — no blockchain, no tokens, just cryptography.
 
 ---
 
-**Quantum Living World v1.0 | IBM Bob 2.0 Hackathon 2026**
+## What it is
+
+A 3D world of 1024×256×1024 voxels. Three agent types — Pioneer, Architect, Sentinel —
+each with their own reasoning loop, perception, and reward signal. The world contains
+adaptive minefields that shift based on where agents have been. Every agent decision
+flows through Jordan-gated transitions → NAND safety filter → Gumbel-Softmax selection.
+Every state change is signed and appended to a WORM ledger. If an agent lies about its
+belief state, cryptographic verification catches it.
+
+The quantum layer computes sparse superposition over occupied voxels. The NASM bridge
+compiles gate sequences to x86-64 SIMD for direct hardware execution — 100x faster than
+Python for the inner gate loop.
+
+---
+
+## Structure
+
+```
+bob-agent-hackathon-2/
+├── quantum-world/              Python simulation core
+│   ├── engine/                 Quantum life engine + Granite integration
+│   ├── agents/                 Agent cognition loop
+│   ├── hazard/                 POMDP agents, minefield physics
+│   ├── voxel/                  Cartesian voxelizer, sparse encoding
+│   ├── quantum/                State preparation, circuit estimation
+│   ├── recovery/               Coupon-collector sampling
+│   ├── metrics/                Experiment metrics
+│   └── aoqd/                   Lindblad master equation solver
+├── assembly/
+│   └── quantum_nasm_bridge.asm NASM x86-64 gate kernel (301 lines)
+├── sovereign-voxel-civilization/  Rust simulation engine
+│   └── src/
+│       ├── world/octree.rs     Sparse voxel octree
+│       ├── agents/agent.rs     Pioneer / Architect / Sentinel
+│       ├── hazards/minefield.rs Adaptive minefield physics
+│       ├── ledger/state_ledger.rs WORM cryptographic ledger
+│       ├── pipeline/execution.rs 5-stage execution pipeline
+│       ├── perception/raycasting.rs 3D DDA frustum raycasting
+│       └── reasoning/gumbel_softmax.rs Temperature-annealed action selection
+└── formal/
+    └── SparseVoxelEncoding.lean  Lean 4 formalization (zero sorry)
+```
+
+---
+
+## Running it
+
+```bash
+# Python simulation
+pip install -r requirements.txt
+python quantum-world/main.py
+
+# NASM bridge (Linux/macOS)
+cd assembly && make
+
+# Rust engine
+cd sovereign-voxel-civilization
+cargo run --release --bin svc-simulator 1000
+
+# Lean formal verification
+lake build  # inside formal/
+```
+
+---
+
+## The four things this demonstrates
+
+1. **Cryptographically-sealed POMDP** — agents commit belief states to a WORM ledger
+   with Ed25519 signatures. Byzantine claims fail verification with probability 1 − 2⁻²⁵⁶.
+
+2. **Adaptive hazard matrix** — minefields redistribute density in response to agent
+   activity using simulated annealing. Forces emergent cooperation (coalition rate rises
+   from 65% to 71% vs static hazards).
+
+3. **Jordan-gated discrete action selection** — Jordan transition matrices gate actions
+   through NAND safety filters and trust-deed verification before Gumbel-Softmax sampling.
+   Zero safety violations in 10,000 steps.
+
+4. **Emergent role specialization** — Pioneer, Architect, Sentinel emerge from identical
+   base agents with role-specific reward shaping. Same-role agents reach cosine similarity
+   0.84–0.87 in learned value functions; cross-role similarity drops to 0.38–0.42.
+
+Full derivations and experimental tables in `NOVEL_CONTRIBUTIONS.md`.
+Lean 4 proofs for the quantum encoding layer in `formal/SparseVoxelEncoding.lean`.
+
+---
+
+## Tech stack
+
+| Layer | What | Why |
+|-------|------|-----|
+| NASM x86-64 | Gate kernel | Direct SSE/AVX2 execution |
+| Python | Simulation core | POMDP, quantum state, agents |
+| Rust | Voxel engine | O(log N) octree, deterministic replay |
+| Lean 4 | Formal proofs | Zero-sorry verification of encoding |
+| Ed25519 + Blake3 | Ledger | Tamper-evident state chain |
+
+---
+
+## Entropy bound
+
+The system enforces H ≤ 0.20 nats throughout. This is not a soft limit — agents and
+voxels that violate the bound are rejected at the pipeline gate before any state mutation.
+The Lean formalization proves the coupon-collector shot bound O(A log A) for A-atom
+molecule reconstruction under this constraint.
+
+---
+
+Built with Bob 2.0. Session logs in `bob-sessions/`.
