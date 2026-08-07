@@ -1,0 +1,10 @@
+[package]
+name = "mqs-verifier"
+version = "0.1.0"
+edition = "2021"
+description = "GJW traversability verifier: braid word vs modular Hamiltonian"
+license = "MIT"
+
+[dependencies]
+
+[workspace]
