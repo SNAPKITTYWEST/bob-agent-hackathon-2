@@ -1,0 +1,52 @@
+[package]
+name = "sovereign-voxel-civilization"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sovereign Voxel Team"]
+description = "DeepMind-inspired neural-symbolic hybrid simulation framework for autonomous emergent civilization building"
+license = "MIT"
+
+[dependencies]
+# Core dependencies
+uuid = { version = "1.6", features = ["v4", "serde"] }
+rand = "0.8"
+rand_chacha = "0.3"
+
+# Cryptography
+sha3 = "0.10"
+ed25519-dalek = "2.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Async runtime (for future networking)
+tokio = { version = "1.35", features = ["full"], optional = true }
+
+# Logging
+log = "0.4"
+env_logger = "0.11"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[lib]
+name = "sovereign_voxel_civilization"
+path = "src/lib.rs"
+
+[[bin]]
+name = "svc-simulator"
+path = "src/bin/simulator.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.dev]
+opt-level = 0
+
+[features]
+default = []
+networking = ["tokio"]
+[workspace]

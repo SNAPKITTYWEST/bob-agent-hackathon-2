@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sovereign Voxel Civilization - IBM Bob 2.0 Hackathon</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(135deg, #0a0e27 0%, #0f1429 100%);
+      color: #e0e0e0;
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+    }
+
+    #root {
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      padding: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(8, 10, 15, 0.8);
+      backdrop-filter: blur(24px);
+    }
+
+    .header h1 {
+      color: #00ff88;
+      font-size: 28px;
+      margin-bottom: 5px;
+      text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    }
+
+    .header p {
+      color: #888;
+      font-size: 14px;
+    }
+
+    .control-panel {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 20px;
+      background: #111;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+
+    .control-group {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    button {
+      padding: 8px 16px;
+      border: 1px solid #00ff88;
+      background: transparent;
+      color: #00ff88;
+      cursor: pointer;
+      font-weight: bold;
+      border-radius: 4px;
+      transition: all 0.3s;
+      font-family: 'Courier New', monospace;
+    }
+
+    button:hover {
+      background: #00ff88;
+      color: #000;
+      box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+    }
+
+    button:active {
+      transform: scale(0.95);
+    }
+
+    button.stop {
+      border-color: #ff3333;
+      color: #ff3333;
+    }
+
+    button.stop:hover {
+      background: #ff3333;
+      color: #fff;
+    }
+
+    .slider-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    label {
+      color: #aaa;
+      font-size: 12px;
+    }
+
+    input[type="range"] {
+      width: 120px;
+      accent-color: #00ff88;
+    }
+
+    input[type="checkbox"] {
+      accent-color: #00ff88;
+      cursor: pointer;
+    }
+
+    select {
+      background: #1a1a1a;
+      color: #00ff88;
+      border: 1px solid #333;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
+    }
+
+    .main-container {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 10px;
+      flex: 1;
+      padding: 10px;
+      overflow: hidden;
+    }
+
+    .viewport {
+      background: #000;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    #canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .sidebar {
+      background: rgba(12, 14, 21, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      padding: 15px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .panel {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      padding: 12px;
+      background: rgba(15, 16, 22, 0.5);
+    }
+
+    .panel h3 {
+      color: #00ff88;
+      font-size: 14px;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      font-size: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .stat:last-child {
+      border-bottom: none;
+    }
+
+    .stat-label {
+      color: #888;
+    }
+
+    .stat-value {
+      color: #00ff88;
+      font-weight: bold;
+    }
+
+    .agent-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .agent-item {
+      padding: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      margin-bottom: 5px;
+      background: rgba(0, 255, 136, 0.05);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .agent-item:hover {
+      background: rgba(0, 255, 136, 0.1);
+      border-color: #00ff88;
+    }
+
+    .agent-badge {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 20px;
+      font-size: 10px;
+      font-weight: bold;
+      color: white;
+      margin-right: 5px;
+    }
+
+    .agent-badge.pioneer {
+      background: #00ff88;
+    }
+
+    .agent-badge.architect {
+      background: #88ff00;
+    }
+
+    .agent-badge.sentinel {
+      background: #ff8800;
+    }
+
+    .agent-name {
+      font-weight: bold;
+      color: #e0e0e0;
+      font-size: 12px;
+    }
+
+    .agent-status {
+      font-size: 11px;
+      color: #888;
+      margin-top: 3px;
+    }
+
+    .code-panel {
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    .code-block {
+      background: #000;
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 10px;
+      font-size: 10px;
+      line-height: 1.4;
+      color: #00ff88;
+      font-family: 'Courier New', monospace;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .event-log {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .event {
+      padding: 5px;
+      font-size: 11px;
+      border-left: 3px solid #333;
+      margin-bottom: 3px;
+      padding-left: 8px;
+    }
+
+    .event.trigger {
+      border-left-color: #ff3333;
+      color: #ff3333;
+    }
+
+    .event.build {
+      border-left-color: #00ff88;
+      color: #00ff88;
+    }
+
+    .event.explore {
+      border-left-color: #88ff00;
+      color: #88ff00;
+    }
+
+    .event time {
+      color: #666;
+      font-size: 10px;
+      margin-right: 5px;
+    }
+
+    @media (max-width: 1400px) {
+      .main-container {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div class="header">
+      <h1>⚛️ Sovereign Voxel Civilization</h1>
+      <p>Real-time MARL simulation with quantum hazard matrix physics | IBM Bob 2.0 Hackathon</p>
+    </div>
+
+    <div class="control-panel">
+      <div class="control-group">
+        <button id="playBtn">▶ Start</button>
+        <button id="pauseBtn" class="stop">⏸ Pause</button>
+        <button id="resetBtn">↻ Reset</button>
+        <button id="stepBtn">→ Step</button>
+      </div>
+
+      <div class="control-group">
+        <div class="slider-group">
+          <label for="speedSlider">Speed:</label>
+          <input type="range" id="speedSlider" min="0.1" max="5" step="0.1" value="1">
+          <span id="speedValue">1x</span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <div class="slider-group">
+          <label for="viewMode">View:</label>
+          <select id="viewMode">
+            <option value="3d">3D Voxel</option>
+            <option value="hazard">Hazard Map</option>
+            <option value="trace">Agent Trace</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label><input type="checkbox" id="showHazards" checked> Hazards</label>
+        <label><input type="checkbox" id="showAgents" checked> Agents</label>
+        <label><input type="checkbox" id="showStructures" checked> Structures</label>
+      </div>
+    </div>
+
+    <div class="main-container">
+      <div class="viewport">
+        <canvas id="canvas"></canvas>
+      </div>
+
+      <div class="sidebar">
+        <div class="panel">
+          <h3>World Stats</h3>
+          <div class="stat">
+            <span class="stat-label">Step</span>
+            <span class="stat-value" id="statStep">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Agents</span>
+            <span class="stat-value" id="statAgents">3</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Structures</span>
+            <span class="stat-value" id="statStructures">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Hazards</span>
+            <span class="stat-value" id="statHazards">42</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Threat Level</span>
+            <span class="stat-value" id="statThreat">0.23</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Active Agents</h3>
+          <div class="agent-list" id="agentList">
+            <div class="agent-item">
+              <span class="agent-badge pioneer">P</span>
+              <span class="agent-name">pioneer-0</span>
+              <div class="agent-status">explore @ (145, 78, 203)</div>
+            </div>
+            <div class="agent-item">
+              <span class="agent-badge architect">A</span>
+              <span class="agent-name">architect-0</span>
+              <div class="agent-status">build @ (287, 89, 156)</div>
+            </div>
+            <div class="agent-item">
+              <span class="agent-badge sentinel">S</span>
+              <span class="agent-name">sentinel-0</span>
+              <div class="agent-status">defend @ (412, 102, 298)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar">
+        <div class="panel">
+          <h3>Generated Code</h3>
+          <div class="code-block" id="codeBlock">// Pioneer: Exploration Mapping
+for (const voxel of frontier) {
+  await probeVoxel(voxel)
+  updateMap()
+  if (entropy > threshold) {
+    recordObservation()
+  }
+}</div>
+        </div>
+
+        <div class="panel">
+          <h3>Event Log</h3>
+          <div class="event-log" id="eventLog">
+            <div class="event explore"><time>00:00:00</time>Pioneer started exploration</div>
+            <div class="event build"><time>00:00:01</time>Architect building tower</div>
+            <div class="event explore"><time>00:00:02</time>Pioneer discovered hazard</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // ========================================================================
+    // Sovereign Voxel Civilization - 3D Visualization
+    // ========================================================================
+
+    let scene, camera, renderer;
+    let simulationRunning = false;
+    let currentStep = 0;
+    let simulationSpeed = 1;
+    let voxelGrid = [];
+    let agents = [];
+    let hazards = [];
+    let structures = [];
+
+    // Agent data
+    const agentData = [
+      { id: 'pioneer-0', role: 'Pioneer', color: 0x00ff88, position: [100, 50, 100] },
+      { id: 'architect-0', role: 'Architect', color: 0x88ff00, position: [200, 50, 200] },
+      { id: 'sentinel-0', role: 'Sentinel', color: 0xff8800, position: [300, 50, 300] }
+    ];
+
+    // Code snippets for different agent roles
+    const codeSnippets = {
+      'pioneer-0': `// Pioneer: Exploration & Mapping
+for (const voxel of unexploredFrontier()) {
+  await probeVoxel(voxel)
+  updateSpatialMap()
+  if (informationGain > threshold) {
+    recordObservation()
+  }
+}`,
+      'architect-0': `// Architect: Structure Compilation
+const blueprint = selectStructure('tower')
+const location = findOptimalLocation()
+await compileStructure(blueprint, location)
+updateMacroLayout()
+distributeResources()`,
+      'sentinel-0': `// Sentinel: Threat Mitigation
+const hazards = detectMinefieldGradient()
+for (const threat of hazards) {
+  if (threat.severity > 0.8) {
+    await buildDefense(threat)
+    updateTrustDeed(allies)
+  }
+}`
+    };
+
+    // Initialize Three.js scene
+    function initScene() {
+      const canvas = document.getElementById('canvas');
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x000000);
+      scene.fog = new THREE.Fog(0x000000, 800, 2000);
+
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+      camera.position.set(400, 300, 400);
+      camera.lookAt(256, 100, 256);
+
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight - 120);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFShadowShadowMap;
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(300, 400, 300);
+      directionalLight.castShadow = true;
+      directionalLight.shadow.mapSize.width = 2048;
+      directionalLight.shadow.mapSize.height = 2048;
+      scene.add(directionalLight);
+
+      // Grid ground
+      const gridHelper = new THREE.GridHelper(1024, 32, 0x444444, 0x222222);
+      gridHelper.position.y = 0;
+      scene.add(gridHelper);
+
+      // Initialize agents
+      for (const agentInfo of agentData) {
+        const geometry = new THREE.SphereGeometry(8, 16, 16);
+        const material = new THREE.MeshStandardMaterial({ color: agentInfo.color, emissive: agentInfo.color, emissiveIntensity: 0.5 });
+        const sphere = new THREE.Mesh(geometry, material);
+        sphere.position.set(agentInfo.position[0], agentInfo.position[1] + 20, agentInfo.position[2]);
+        sphere.castShadow = true;
+        sphere.receiveShadow = true;
+        sphere.userData = { agentId: agentInfo.id, role: agentInfo.role };
+        scene.add(sphere);
+
+        agents.push({
+          mesh: sphere,
+          id: agentInfo.id,
+          role: agentInfo.role,
+          position: [...agentInfo.position],
+          velocity: [Math.random() - 0.5, 0, Math.random() - 0.5]
+        });
+      }
+
+      // Initialize hazards (voxels)
+      for (let i = 0; i < 50; i++) {
+        const x = Math.random() * 1000 - 500;
+        const z = Math.random() * 1000 - 500;
+        const hazardGeometry = new THREE.BoxGeometry(4, 4, 4);
+        const hazardMaterial = new THREE.MeshStandardMaterial({ color: 0xff3333, emissive: 0xff3333, emissiveIntensity: 0.3 });
+        const hazardMesh = new THREE.Mesh(hazardGeometry, hazardMaterial);
+        hazardMesh.position.set(x, 2, z);
+        hazardMesh.castShadow = true;
+        scene.add(hazardMesh);
+
+        hazards.push({
+          mesh: hazardMesh,
+          position: [x, 2, z],
+          triggered: false
+        });
+      }
+
+      window.addEventListener('resize', onWindowResize);
+      animate();
+    }
+
+    function onWindowResize() {
+      const width = window.innerWidth;
+      const height = window.innerHeight - 120;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (simulationRunning) {
+        updateSimulation();
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    function updateSimulation() {
+      // Move agents
+      agents.forEach(agent => {
+        agent.position[0] += agent.velocity[0] * simulationSpeed;
+        agent.position[2] += agent.velocity[2] * simulationSpeed;
+
+        // Bounce off edges
+        if (agent.position[0] < -400 || agent.position[0] > 400) agent.velocity[0] *= -1;
+        if (agent.position[2] < -400 || agent.position[2] > 400) agent.velocity[2] *= -1;
+
+        agent.mesh.position.set(agent.position[0], agent.position[1] + 20, agent.position[2]);
+      });
+
+      // Check hazard collisions
+      agents.forEach(agent => {
+        hazards.forEach(hazard => {
+          const dist = Math.hypot(
+            agent.position[0] - hazard.position[0],
+            agent.position[2] - hazard.position[2]
+          );
+
+          if (dist < 30 && !hazard.triggered) {
+            hazard.triggered = true;
+            hazard.mesh.material.emissiveIntensity = 1;
+            addEvent('trigger', `⚠ Hazard triggered by ${agent.id}`);
+          }
+        });
+      });
+
+      currentStep++;
+      updateStats();
+    }
+
+    function updateStats() {
+      document.getElementById('statStep').textContent = currentStep;
+      document.getElementById('statHazards').textContent = hazards.filter(h => h.triggered).length;
+      document.getElementById('statThreat').textContent = (Math.random() * 0.5 + 0.1).toFixed(2);
+    }
+
+    function addEvent(type, message) {
+      const eventLog = document.getElementById('eventLog');
+      const time = new Date().toLocaleTimeString();
+      const eventDiv = document.createElement('div');
+      eventDiv.className = `event ${type}`;
+      eventDiv.innerHTML = `<time>${time}</time>${message}`;
+      eventLog.insertBefore(eventDiv, eventLog.firstChild);
+      if (eventLog.children.length > 15) eventLog.removeChild(eventLog.lastChild);
+    }
+
+    // UI Event Listeners
+    document.getElementById('playBtn').addEventListener('click', () => {
+      simulationRunning = true;
+      addEvent('explore', 'Simulation started');
+    });
+
+    document.getElementById('pauseBtn').addEventListener('click', () => {
+      simulationRunning = false;
+      addEvent('build', 'Simulation paused');
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      simulationRunning = false;
+      currentStep = 0;
+      hazards.forEach(h => { h.triggered = false; h.mesh.material.emissiveIntensity = 0.3; });
+      agents.forEach((agent, i) => {
+        agent.position = [...agentData[i].position];
+        agent.velocity = [Math.random() - 0.5, 0, Math.random() - 0.5];
+      });
+      updateStats();
+      addEvent('explore', 'Simulation reset');
+    });
+
+    document.getElementById('stepBtn').addEventListener('click', () => {
+      updateSimulation();
+    });
+
+    document.getElementById('speedSlider').addEventListener('change', (e) => {
+      simulationSpeed = parseFloat(e.target.value);
+      document.getElementById('speedValue').textContent = simulationSpeed.toFixed(1) + 'x';
+    });
+
+    document.getElementById('viewMode').addEventListener('change', (e) => {
+      addEvent('build', `View mode changed to ${e.target.value}`);
+    });
+
+    document.getElementById('showHazards').addEventListener('change', () => {
+      hazards.forEach(h => h.mesh.visible = document.getElementById('showHazards').checked);
+    });
+
+    document.getElementById('showAgents').addEventListener('change', () => {
+      agents.forEach(a => a.mesh.visible = document.getElementById('showAgents').checked);
+    });
+
+    // Agent selection
+    document.querySelectorAll('.agent-item').forEach((item, index) => {
+      item.addEventListener('click', () => {
+        const codeBlock = document.getElementById('codeBlock');
+        const agentId = agentData[index].id;
+        codeBlock.textContent = codeSnippets[agentId];
+      });
+    });
+
+    // Initialize
+    initScene();
+  </script>
+</body>
+</html>

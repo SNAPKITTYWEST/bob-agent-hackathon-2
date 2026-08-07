@@ -1,0 +1,75 @@
+# Quantum Living World - Python Dependencies
+
+# IBM Granite LLM (Quantum Code Generation)
+transformers>=4.36.0
+torch>=2.1.0
+accelerate>=0.25.0
+sentencepiece>=0.1.99
+
+# LangChain and AI
+langchain>=0.1.0
+langchain-core>=0.1.0
+langchain-community>=0.0.20
+openai>=1.0.0
+anthropic>=0.18.0
+
+# Quantum Computing (IBM Quantum - Scientific Reports 2018 Protocol)
+qiskit>=1.0.0
+qiskit-aer>=0.13.0
+qiskit-ibm-runtime>=0.17.0
+pennylane>=0.33.0
+cirq>=1.3.0
+
+# Scientific Computing
+numpy>=1.24.0
+scipy>=1.11.0
+sympy>=1.12
+
+# Data Structures
+pydantic>=2.5.0
+networkx>=3.2.0
+
+# Cryptography
+blake3>=0.4.0
+cryptography>=41.0.0
+
+# Assembly Integration
+cffi>=1.16.0
+pycparser>=2.21
+
+# Web Framework (for API)
+fastapi>=0.104.0
+uvicorn>=0.24.0
+websockets>=12.0
+
+# Database & Storage
+redis>=5.0.0
+lmdb>=1.4.0
+
+# Visualization
+matplotlib>=3.8.0
+plotly>=5.18.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+
+# Development Tools
+black>=23.11.0
+ruff>=0.1.6
+mypy>=1.7.0
+
+# Logging & Monitoring
+structlog>=23.2.0
+prometheus-client>=0.19.0
+
+# WASM Support
+wasmtime>=14.0.0
+
+# XML/XSLT Processing
+lxml>=4.9.0
+
+# Performance
+numba>=0.58.0
+cython>=3.0.0
