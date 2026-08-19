@@ -1,0 +1,133 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "quantum_ir_schema.json",
+  "title": "QuantumIR",
+  "description": "Shared quantum intermediate representation for multi-language quantum frontends. Version 0.1.0.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["version", "source_lang", "qubits", "cbits", "ops", "metadata", "resources"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version, semver string",
+      "example": "0.1.0"
+    },
+    "source_lang": {
+      "type": "string",
+      "description": "Source language identifier (yao | quipper | guppy | qasm | etc.)"
+    },
+    "qubits": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Total number of qubits in the circuit"
+    },
+    "cbits": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of classical bits for measurement results"
+    },
+    "ops": {
+      "type": "array",
+      "description": "Flat sequential list of quantum operations",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["type", "name", "params", "qubits"],
+            "properties": {
+              "type": {"type": "string", "enum": ["gate"]},
+              "name": {"type": "string", "description": "Gate name (H, X, Y, Z, T, S, Rx, Rz, CX, CCX, ...)"},
+              "params": {
+                "type": "array",
+                "items": {"type": "number"},
+                "description": "Gate rotation/phase parameters (radians)"
+              },
+              "qubits": {
+                "type": "array",
+                "items": {"type": "integer", "minimum": 0},
+                "description": "Qubit indices this gate acts on (0-indexed)"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type", "qubit", "cbit"],
+            "properties": {
+              "type": {"type": "string", "enum": ["measure"]},
+              "qubit": {"type": "integer", "minimum": 0},
+              "cbit":  {"type": "integer", "minimum": 0}
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type", "qubits"],
+            "properties": {
+              "type": {"type": "string", "enum": ["barrier"]},
+              "qubits": {"type": "array", "items": {"type": "integer", "minimum": 0}}
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type", "qubit"],
+            "properties": {
+              "type": {"type": "string", "enum": ["reset"]},
+              "qubit": {"type": "integer", "minimum": 0}
+            }
+          }
+        ]
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["source_lang", "version", "unsupported"],
+      "properties": {
+        "source_lang": {"type": "string"},
+        "version": {"type": "string"},
+        "unsupported": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Explicit list of source-language semantics NOT representable in this IR. MUST NEVER be silently empty — list every semantic gap."
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "required": ["gate_count", "depth", "t_count", "width"],
+      "properties": {
+        "gate_count": {"type": "integer", "minimum": 0, "description": "Total number of gate operations"},
+        "depth": {"type": "integer", "minimum": 0, "description": "Critical path depth (number of sequential layers)"},
+        "t_count": {"type": "integer", "minimum": 0, "description": "Number of T and T-dagger gates (fault-tolerance cost)"},
+        "width": {"type": "integer", "minimum": 1, "description": "Maximum number of qubits active simultaneously (= qubits for full circuits)"}
+      }
+    }
+  },
+  "examples": [
+    {
+      "version": "0.1.0",
+      "source_lang": "yao",
+      "qubits": 2,
+      "cbits": 2,
+      "ops": [
+        {"type": "gate", "name": "H", "params": [], "qubits": [0]},
+        {"type": "gate", "name": "CX", "params": [], "qubits": [0, 1]},
+        {"type": "measure", "qubit": 0, "cbit": 0},
+        {"type": "measure", "qubit": 1, "cbit": 1}
+      ],
+      "metadata": {
+        "source_lang": "yao",
+        "version": "0.1.0",
+        "unsupported": [
+          "KronBlock parallelism (serialized to sequential in QIR)",
+          "differentiable parameters (AD metadata not in QIR v0.1)",
+          "Yao.jl ChainBlock nesting (flattened)"
+        ]
+      },
+      "resources": {
+        "gate_count": 2,
+        "depth": 3,
+        "t_count": 0,
+        "width": 2
+      }
+    }
+  ]
+}
