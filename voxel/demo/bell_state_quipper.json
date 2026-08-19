@@ -1,0 +1,21 @@
+{
+  "version": "0.1.0",
+  "source_lang": "quipper",
+  "qubits": 2,
+  "cbits": 2,
+  "ops": [
+    {"type": "gate",    "name": "H",  "params": [], "qubits": [0]},
+    {"type": "gate",    "name": "CX", "params": [], "qubits": [0, 1]},
+    {"type": "measure", "qubit": 0,   "cbit": 0},
+    {"type": "measure", "qubit": 1,   "cbit": 1}
+  ],
+  "metadata": {
+    "source_lang": "quipper",
+    "version": "0.1.0",
+    "unsupported": [
+      "higher-order circuit parameters (Quipper BoxedCircuit) — represented as flattened gate sequence",
+      "dynamic lifting (classical feedback) — measurement only"
+    ]
+  },
+  "resources": {"gate_count": 2, "depth": 3, "t_count": 0, "width": 2}
+}
