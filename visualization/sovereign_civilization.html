@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sovereign Civilization Visualization - Phase 13</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #0f0;
+            overflow: hidden;
+        }
+        #container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #topBar {
+            height: 40px;
+            background: #111;
+            border-bottom: 2px solid #0f0;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            font-size: 14px;
+            gap: 20px;
+        }
+        #topBar .status {
+            color: #ffb703;
+        }
+        #viewports {
+            flex: 1;
+            display: flex;
+        }
+        .viewport {
+            flex: 1;
+            position: relative;
+            border-right: 1px solid #0f0;
+        }
+        .viewport:last-child {
+            border-right: none;
+        }
+        .viewport canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .viewport-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 5px 10px;
+            border: 1px solid #0f0;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .needs-hud {
+            position: absolute;
+            bottom: 60px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 10px;
+            border: 1px solid #0f0;
+            font-size: 11px;
+            min-width: 200px;
+        }
+        .needs-bar {
+            margin: 5px 0;
+        }
+        .needs-bar-label {
+            display: inline-block;
+            width: 80px;
+        }
+        .needs-bar-fill {
+            display: inline-block;
+            height: 12px;
+            background: #333;
+            width: 100px;
+            border: 1px solid #666;
+            position: relative;
+            vertical-align: middle;
+        }
+        .needs-bar-value {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            transition: width 0.3s;
+        }
+        .hunger { background: #ff0000; }
+        .energy { background: #ffff00; }
+        .social { background: #0000ff; }
+        .fun { background: #00ff00; }
+        #bottomBar {
+            height: 30px;
+            background: #111;
+            border-top: 2px solid #0f0;
+            overflow: hidden;
+            position: relative;
+        }
+        #memoryTicker {
+            position: absolute;
+            white-space: nowrap;
+            padding: 5px 0;
+            font-size: 12px;
+            animation: scroll 30s linear infinite;
+        }
+        @keyframes scroll {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+        .speech-bubble {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            color: #000;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            max-width: 200px;
+            pointer-events: none;
+            border: 2px solid #333;
+        }
+        .speech-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid rgba(255, 255, 255, 0.95);
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="topBar">
+            <span>SOVEREIGN CIVILIZATION</span>
+            <span>|</span>
+            <span>SIM TIME: <span id="simTime">00:00:00</span></span>
+            <span>|</span>
+            <span>[REALITY]</span>
+            <span>[SPACE]</span>
+            <span>|</span>
+            <span>AGENTS: <span id="agentCount">3</span></span>
+            <span>|</span>
+            <span class="status">QUBO: <span id="quboStatus">IDLE</span></span>
+        </div>
+        <div id="viewports">
+            <div class="viewport" id="realityViewport">
+                <div class="viewport-label">REALITY WORLD</div>
+                <div class="needs-hud" id="needsHud"></div>
+            </div>
+            <div class="viewport" id="spaceViewport">
+                <div class="viewport-label">SPACE HABITAT</div>
+            </div>
+        </div>
+        <div id="bottomBar">
+            <div id="memoryTicker"></div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        // ===== SIMULATION STATE =====
+        
+        class Vector3 {
+            constructor(x, y, z) {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+            }
+        }
+
+        class AgentState {
+            constructor(name, persona, startPos) {
+                this.name = name;
+                this.persona = persona;
+                this.needs = {
+                    hunger: 100.0,
+                    energy: 100.0,
+                    social: 100.0,
+                    fun: 100.0
+                };
+                this.memoryStream = [];
+                this.currentIntention = null;
+                this.targetLocation = null;
+                this.position = startPos;
+                this.velocity = new Vector3(0, 0, 0);
+                this.currentAnimation = 'idle';
+            }
+        }
+
+        class QuantumTwinState {
+            constructor(agentId, position) {
+                this.agentId = agentId;
+                this.position = position;
+                this.velocity = new Vector3(0, 0, 0);
+                this.activeConstraints = [];
+                this.assignedResource = null;
+            }
+        }
+
+        // Simulation data
+        const locations = {
+            'Kitchen': new Vector3(2.0, 0.0, 8.0),
+            'TownSquare': new Vector3(15.0, 0.0, -4.0),
+            'Bedroom': new Vector3(-5.0, 0.0, 12.0)
+        };
+
+        const resourceNodes = {
+            'O2_Generator': { pos: new Vector3(10.0, 0.0, 0.0), color: 0x00b4d8 },
+            'Power_Grid': { pos: new Vector3(-10.0, 0.0, 5.0), color: 0xffb703 },
+            'Hydroponics': { pos: new Vector3(0.0, 0.0, -15.0), color: 0x2dc653 }
+        };
+
+        const resourceMapping = {
+            'O2_Generator': 'Kitchen',
+            'Power_Grid': 'TownSquare',
+            'Hydroponics': 'Bedroom'
+        };
+
+        const agents = [
+            new AgentState('Isabella_Rodriguez', 'Cafe owner who loves hosting social events', new Vector3(0, 0, 0)),
+            new AgentState('Klaus_Mueller', 'Obsessive research scientist investigating local lore', new Vector3(5, 0, 2)),
+            new AgentState('Maria_Lopez', 'Ambitious interior designer and social organizer', new Vector3(-2, 0, -1))
+        ];
+
+        const twins = [
+            new QuantumTwinState('Isabella_Twin', new Vector3(0, 0, 0)),
+            new QuantumTwinState('Klaus_Twin', new Vector3(2, 0, 1))
+        ];
+
+        twins[0].activeConstraints = ['O2_Depletion'];
+        twins[1].activeConstraints = ['System_Repair'];
+
+        let simTime = 0;
+        let quboOptimizing = false;
+        const memoryLog = [];
+
+        // ===== QUANTUM COLOR PALETTE (8 colors from QIR) =====
+        const quantumColors = [
+            0x00ffff, // |0⟩ - cyan
+            0xff00ff, // |1⟩ - magenta
+            0xffff00, // |+⟩ - yellow
+            0x00ff00, // |-⟩ - green
+            0xff0000, // |i⟩ - red
+            0x0000ff, // |-i⟩ - blue
+            0xffffff, // superposition - white
+            0x888888  // entangled - gray
+        ];
+
+        // ===== REALITY WORLD SETUP =====
+        
+        const realityScene = new THREE.Scene();
+        realityScene.background = new THREE.Color(0x87ceeb);
+        realityScene.fog = new THREE.Fog(0x87ceeb, 50, 100);
+
+        const realityCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
+        realityCamera.position.set(0, 15, 20);
+        realityCamera.lookAt(0, 0, 0);
+
+        const realityRenderer = new THREE.WebGLRenderer({ antialias: true });
+        realityRenderer.shadowMap.enabled = true;
+        realityRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById('realityViewport').appendChild(realityRenderer.domElement);
+
+        const realityControls = new OrbitControls(realityCamera, realityRenderer.domElement);
+        realityControls.enableDamping = true;
+        realityControls.dampingFactor = 0.05;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        realityScene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(20, 30, 10);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.left = -30;
+        dirLight.shadow.camera.right = 30;
+        dirLight.shadow.camera.top = 30;
+        dirLight.shadow.camera.bottom = -30;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        realityScene.add(dirLight);
+
+        // Ground
+        const groundGeometry = new THREE.PlaneGeometry(100, 100);
+        const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x7cba5a });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        realityScene.add(ground);
+
+        // Locations
+        const kitchenGeometry = new THREE.BoxGeometry(3, 2, 2);
+        const kitchenMaterial = new THREE.MeshStandardMaterial({ color: 0xd4a574 });
+        const kitchen = new THREE.Mesh(kitchenGeometry, kitchenMaterial);
+        kitchen.position.set(locations.Kitchen.x, 1, locations.Kitchen.z);
+        kitchen.castShadow = true;
+        realityScene.add(kitchen);
+
+        const townSquareGeometry = new THREE.BoxGeometry(2, 0.5, 4);
+        const townSquareMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+        const townSquare = new THREE.Mesh(townSquareGeometry, townSquareMaterial);
+        townSquare.position.set(locations.TownSquare.x, 0.25, locations.TownSquare.z);
+        townSquare.castShadow = true;
+        realityScene.add(townSquare);
+
+        // Trees near town square
+        const treeGeometry = new THREE.CylinderGeometry(0, 1.5, 4, 8);
+        const treeMaterial = new THREE.MeshStandardMaterial({ color: 0x228b22 });
+        const tree1 = new THREE.Mesh(treeGeometry, treeMaterial);
+        tree1.position.set(locations.TownSquare.x + 3, 2, locations.TownSquare.z);
+        tree1.castShadow = true;
+        realityScene.add(tree1);
+
+        const bedroomGeometry = new THREE.BoxGeometry(4, 1, 3);
+        const bedroomMaterial = new THREE.MeshStandardMaterial({ color: 0x9370db });
+        const bedroom = new THREE.Mesh(bedroomGeometry, bedroomMaterial);
+        bedroom.position.set(locations.Bedroom.x, 0.5, locations.Bedroom.z);
+        bedroom.castShadow = true;
+        realityScene.add(bedroom);
+
+        // ===== SPACE HABITAT SETUP =====
+        
+        const spaceScene = new THREE.Scene();
+        spaceScene.background = new THREE.Color(0x000000);
+
+        const spaceCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
+        spaceCamera.position.set(0, 20, 30);
+        spaceCamera.lookAt(0, 0, 0);
+
+        const spaceRenderer = new THREE.WebGLRenderer({ antialias: true });
+        document.getElementById('spaceViewport').appendChild(spaceRenderer.domElement);
+
+        const spaceControls = new OrbitControls(spaceCamera, spaceRenderer.domElement);
+        spaceControls.enableDamping = true;
+        spaceControls.dampingFactor = 0.05;
+
+        // Starfield
+        const starsGeometry = new THREE.BufferGeometry();
+        const starPositions = [];
+        for (let i = 0; i < 2000; i++) {
+            starPositions.push(
+                (Math.random() - 0.5) * 200,
+                (Math.random() - 0.5) * 200,
+                (Math.random() - 0.5) * 200
+            );
+        }
+        starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+        const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.5 });
+        const stars = new THREE.Points(starsGeometry, starsMaterial);
+        spaceScene.add(stars);
+
+        // Ambient light for space
+        const spaceAmbient = new THREE.AmbientLight(0x404040, 0.5);
+        spaceScene.add(spaceAmbient);
+
+        // Habitat corridors
+        const corridorGeometry = new THREE.BoxGeometry(2, 2, 30);
+        const corridorMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x555555, 
+            metalness: 0.8, 
+            roughness: 0.2 
+        });
+        const corridor1 = new THREE.Mesh(corridorGeometry, corridorMaterial);
+        corridor1.position.set(0, 0, 0);
+        spaceScene.add(corridor1);
+
+        const corridor2 = new THREE.Mesh(corridorGeometry, corridorMaterial);
+        corridor2.rotation.y = Math.PI / 2;
+        corridor2.position.set(0, 0, 0);
+        spaceScene.add(corridor2);
+
+        // Resource nodes
+        const resourceMeshes = {};
+        Object.entries(resourceNodes).forEach(([name, data]) => {
+            const geometry = new THREE.SphereGeometry(1, 32, 32);
+            const material = new THREE.MeshStandardMaterial({ 
+                color: data.color,
+                emissive: data.color,
+                emissiveIntensity: 0.5
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(data.pos.x, data.pos.y, data.pos.z);
+            spaceScene.add(mesh);
+            resourceMeshes[name] = mesh;
+
+            // Pulsing animation
+            mesh.userData.pulsePhase = Math.random() * Math.PI * 2;
+        });
+
+        // ===== CHARACTER LOADING =====
+        
+        const loader = new GLTFLoader();
+        const characterMeshes = {};
+        const twinMeshes = {};
+        const speechBubbles = {};
+        let modelsLoaded = 0;
+
+        const characterColors = {
+            'Isabella_Rodriguez': 0xd4a574,
+            'Klaus_Mueller': 0x6495ed,
+            'Maria_Lopez': 0xff69b4
+        };
+
+        function loadCharacter(agent, isTwin = false) {
+            loader.load(
+                'https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb',
+                (gltf) => {
+                    const model = gltf.scene;
+                    model.scale.set(0.5, 0.5, 0.5);
+                    
+                    if (isTwin) {
+                        model.traverse((child) => {
+                            if (child.isMesh) {
+                                child.material = child.material.clone();
+                                child.material.emissive = new THREE.Color(0x00ffff);
+                                child.material.emissiveIntensity = 0.5;
+                                child.material.transparent = true;
+                                child.material.opacity = 0.85;
+                            }
+                        });
+                        model.position.set(agent.position.x, agent.position.y, agent.position.z);
+                        spaceScene.add(model);
+                        twinMeshes[agent.agentId] = { model, mixer: new THREE.AnimationMixer(model), clips: gltf.animations };
+                        
+                        // Add voxel grid overlay
+                        const voxelGrid = createVoxelGrid(agent.agentId);
+                        voxelGrid.position.set(3, 2, 0);
+                        model.add(voxelGrid);
+                    } else {
+                        model.traverse((child) => {
+                            if (child.isMesh) {
+                                child.material = child.material.clone();
+                                child.material.color = new THREE.Color(characterColors[agent.name]);
+                                child.castShadow = true;
+                            }
+                        });
+                        model.position.set(agent.position.x, agent.position.y, agent.position.z);
+                        realityScene.add(model);
+                        characterMeshes[agent.name] = { model, mixer: new THREE.AnimationMixer(model), clips: gltf.animations };
+                    }
+                    
+                    modelsLoaded++;
+                },
+                undefined,
+                (error) => console.error('Error loading model:', error)
+            );
+        }
+
+        // Load all characters
+        agents.forEach(agent => loadCharacter(agent, false));
+        twins.forEach(twin => loadCharacter(twin, true));
+
+        function createVoxelGrid(agentId) {
+            const group = new THREE.Group();
+            const voxelSize = 0.3;
+            const spacing = 0.35;
+            
+            for (let x = 0; x < 3; x++) {
+                for (let y = 0; y < 3; y++) {
+                    for (let z = 0; z < 3; z++) {
+                        const geometry = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
+                        const colorIndex = (x + y * 3 + z * 9) % quantumColors.length;
+                        const material = new THREE.MeshBasicMaterial({ 
+                            color: quantumColors[colorIndex],
+                            transparent: true,
+                            opacity: 0.6
+                        });
+                        const voxel = new THREE.Mesh(geometry, material);
+                        voxel.position.set(
+                            (x - 1) * spacing,
+                            (y - 1) * spacing,
+                            (z - 1) * spacing
+                        );
+                        group.add(voxel);
+                    }
+                }
+            }
+            
+            return group;
+        }
+
+        // QUBO assignment lines
+        const quboLines = {};
+        Object.keys(resourceNodes).forEach(nodeName => {
+            const material = new THREE.LineBasicMaterial({ 
+                color: 0xffb703, 
+                transparent: true, 
+                opacity: 0 
+            });
+            const geometry = new THREE.BufferGeometry();
+            const line = new THREE.Line(geometry, material);
+            spaceScene.add(line);
+            quboLines[nodeName] = line;
+        });
+
+        // ===== SIMULATION LOGIC =====
+        
+        function updatePhysics(agent, targetPos, deltaTime) {
+            const dx = targetPos.x - agent.position.x;
+            const dz = targetPos.z - agent.position.z;
+            const distance = Math.sqrt(dx * dx + dz * dz);
+
+            if (distance > 0.1) {
+                const speed = 2.5;
+                agent.position.x += (dx / distance) * speed * deltaTime;
+                agent.position.z += (dz / distance) * speed * deltaTime;
+                agent.currentAnimation = 'walking';
+            } else {
+                agent.currentAnimation = 'idle';
+            }
+        }
+
+        function updateTwinPhysics(twin, targetPos, deltaTime) {
+            const dx = targetPos.x - twin.position.x;
+            const dy = targetPos.y - twin.position.y;
+            const dz = targetPos.z - twin.position.z;
+            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+            if (dist > 0.05) {
+                const speed = 2.0;
+                twin.position.x += (dx / dist) * speed * deltaTime;
+                twin.position.y += (dy / dist) * speed * deltaTime;
+                twin.position.z += (dz / dist) * speed * deltaTime;
+            }
+        }
+
+        async function solveQUBO() {
+            quboOptimizing = true;
+            document.getElementById('quboStatus').textContent = 'OPTIMIZING...';
+            
+            // Show pulsing lines
+            twins.forEach((twin, idx) => {
+                const resourceName = Object.keys(resourceNodes)[idx % 3];
+                const line = quboLines[resourceName];
+                const twinMesh = twinMeshes[twin.agentId];
+                if (twinMesh && resourceMeshes[resourceName]) {
+                    const points = [
+                        twinMesh.model.position.clone(),
+                        resourceMeshes[resourceName].position.clone()
+                    ];
+                    line.geometry.setFromPoints(points);
+                    line.material.opacity = 0.8;
+                }
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 20));
+
+            // Assign resources
+            const assignments = {};
+            twins.forEach((twin, idx) => {
+                const resourceName = Object.keys(resourceNodes)[idx % 3];
+                twin.assignedResource = resourceName;
+                assignments[twin.agentId] = resourceName;
+                
+                // Snap line to solid
+                const line = quboLines[resourceName];
+                line.material.opacity = 1.0;
+            });
+
+            quboOptimizing = false;
+            document.getElementById('quboStatus').textContent = 'IDLE';
+            
+            return assignments;
+        }
+
+        function addMemory(agentName, description) {
+            const record = {
+                timestamp: simTime,
+                agent: agentName,
+                description: description
+            };
+            memoryLog.push(record);
+            if (memoryLog.length > 5) memoryLog.shift();
+            
+            updateMemoryTicker();
+        }
+
+        function updateMemoryTicker() {
+            const ticker = document.getElementById('memoryTicker');
+            ticker.textContent = memoryLog.map(m => 
+                `[${m.agent}] ${m.description}`
+            ).join('  •  ');
+        }
+
+        function updateNeedsHUD() {
+            const hud = document.getElementById('needsHud');
+            hud.innerHTML = '<div style="margin-bottom: 8px; font-weight: bold;">AGENT NEEDS</div>';
+            
+            agents.forEach(agent => {
+                hud.innerHTML += `<div style="margin-bottom: 10px; border-top: 1px solid #0f0; padding-top: 5px;">
+                    <div style="margin-bottom: 3px;">${agent.name}</div>`;
+                
+                Object.entries(agent.needs).forEach(([need, value]) => {
+                    hud.innerHTML += `
+                        <div class="needs-bar">
+                            <span class="needs-bar-label">${need}:</span>
+                            <span class="needs-bar-fill">
+                                <span class="needs-bar-value ${need}" style="width: ${value}%"></span>
+                            </span>
+                        </div>`;
+                });
+                
+                hud.innerHTML += '</div>';
+            });
+        }
+
+        function updateSpeechBubble(agentName, text) {
+            const mesh = characterMeshes[agentName];
+            if (!mesh) return;
+
+            let bubble = speechBubbles[agentName];
+            if (!bubble) {
+                bubble = document.createElement('div');
+                bubble.className = 'speech-bubble';
+                document.getElementById('realityViewport').appendChild(bubble);
+                speechBubbles[agentName] = bubble;
+            }
+
+            bubble.textContent = text;
+            bubble.style.display = text ? 'block' : 'none';
+        }
+
+        function updateSpeechBubblePositions() {
+            Object.entries(speechBubbles).forEach(([agentName, bubble]) => {
+                const mesh = characterMeshes[agentName];
+                if (!mesh || !bubble.style.display || bubble.style.display === 'none') return;
+
+                const pos = mesh.model.position.clone();
+                pos.y += 3;
+                pos.project(realityCamera);
+
+                const x = (pos.x * 0.5 + 0.5) * realityRenderer.domElement.clientWidth;
+                const y = (-(pos.y * 0.5) + 0.5) * realityRenderer.domElement.clientHeight;
+
+                bubble.style.left = x + 'px';
+                bubble.style.top = y + 'px';
+            });
+        }
+
+        // ===== ANIMATION LOOP =====
+        
+        const clock = new THREE.Clock();
+        let lastIntentionUpdate = 0;
+        let lastQUBOUpdate = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const deltaTime = clock.getDelta();
+            simTime += deltaTime;
+
+            // Update sim time display
+            const hours = Math.floor(simTime / 3600);
+            const minutes = Math.floor((simTime % 3600) / 60);
+            const seconds = Math.floor(simTime % 60);
+            document.getElementById('simTime').textContent = 
+                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+            // Cognitive update every 5 seconds
+            if (simTime - lastIntentionUpdate >= 5) {
+                lastIntentionUpdate = simTime;
+                
+                agents.forEach(agent => {
+                    agent.needs.hunger = Math.max(0, agent.needs.hunger - 5);
+                    agent.needs.energy = Math.max(0, agent.needs.energy - 3);
+                    agent.needs.social = Math.max(0, agent.needs.social - 2);
+                    agent.needs.fun = Math.max(0, agent.needs.fun - 1.5);
+
+                    if (agent.needs.hunger < 40) {
+                        agent.currentIntention = 'Eat food';
+                        agent.targetLocation = 'Kitchen';
+                    } else if (agent.needs.social < 50) {
+                        agent.currentIntention = 'Socialize in Park';
+                        agent.targetLocation = 'TownSquare';
+                    } else {
+                        agent.currentIntention = 'Rest';
+                        agent.targetLocation = 'Bedroom';
+                    }
+
+                    updateSpeechBubble(agent.name, agent.currentIntention);
+                    addMemory(agent.name, `Formed intention: ${agent.currentIntention}`);
+                });
+
+                updateNeedsHUD();
+            }
+
+            // QUBO update every 3 seconds
+            if (simTime - lastQUBOUpdate >= 3 && !quboOptimizing) {
+                lastQUBOUpdate = simTime;
+                solveQUBO();
+            }
+
+            // Update physics for reality agents
+            agents.forEach(agent => {
+                if (agent.targetLocation && locations[agent.targetLocation]) {
+                    updatePhysics(agent, locations[agent.targetLocation], deltaTime);
+                    
+                    const mesh = characterMeshes[agent.name];
+                    if (mesh) {
+                        mesh.model.position.set(agent.position.x, agent.position.y, agent.position.z);
+                        
+                        // Update animation
+                        if (agent.currentAnimation === 'walking' && mesh.clips.length > 0) {
+                            const walkClip = mesh.clips.find(c => c.name.toLowerCase().includes('walk'));
+                            if (walkClip) {
+                                const action = mesh.mixer.clipAction(walkClip);
+                                action.play();
+                            }
+                        }
+                        mesh.mixer.update(deltaTime);
+                    }
+                }
+            });
+
+            // Update physics for twins
+            twins.forEach(twin => {
+                if (twin.assignedResource && resourceNodes[twin.assignedResource]) {
+                    updateTwinPhysics(twin, resourceNodes[twin.assignedResource].pos, deltaTime);
+                    
+                    const mesh = twinMeshes[twin.agentId];
+                    if (mesh) {
+                        mesh.model.position.set(twin.position.x, twin.position.y, twin.position.z);
+                        mesh.mixer.update(deltaTime);
+                    }
+                }
+            });
+
+            // Update QUBO lines
+            Object.entries(quboLines).forEach(([nodeName, line]) => {
+                if (line.material.opacity > 0 && !quboOptimizing) {
+                    line.material.opacity = Math.max(0, line.material.opacity - deltaTime * 0.5);
+                }
+            });
+
+            // Pulse resource nodes
+            Object.values(resourceMeshes).forEach(mesh => {
+                mesh.userData.pulsePhase += deltaTime * 2;
+                const scale = 1 + Math.sin(mesh.userData.pulsePhase) * 0.1;
+                mesh.scale.set(scale, scale, scale);
+            });
+
+            // Update speech bubble positions
+            updateSpeechBubblePositions();
+
+            // Render
+            realityControls.update();
+            spaceControls.update();
+
+            const width = window.innerWidth / 2;
+            const height = window.innerHeight - 70;
+
+            realityRenderer.setSize(width, height);
+            realityCamera.aspect = width / height;
+            realityCamera.updateProjectionMatrix();
+            realityRenderer.render(realityScene, realityCamera);
+
+            spaceRenderer.setSize(width, height);
+            spaceCamera.aspect = width / height;
+            spaceCamera.updateProjectionMatrix();
+            spaceRenderer.render(spaceScene, spaceCamera);
+        }
+
+        // Start when models are loaded
+        function checkModelsLoaded() {
+            if (modelsLoaded >= agents.length + twins.length) {
+                updateNeedsHUD();
+                animate();
+            } else {
+                setTimeout(checkModelsLoaded, 100);
+            }
+        }
+        checkModelsLoaded();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            const width = window.innerWidth / 2;
+            const height = window.innerHeight - 70;
+
+            realityCamera.aspect = width / height;
+            realityCamera.updateProjectionMatrix();
+            realityRenderer.setSize(width, height);
+
+            spaceCamera.aspect = width / height;
+            spaceCamera.updateProjectionMatrix();
+            spaceRenderer.setSize(width, height);
+        });
+    </script>
+</body>
+</html>
