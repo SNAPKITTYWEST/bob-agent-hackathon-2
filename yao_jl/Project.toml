@@ -1,0 +1,30 @@
+# Yao.jl Model — Julia Project File
+#
+# This package models Yao.jl block semantics using Julia's standard library only.
+# No external package dependencies.
+#
+# Real Yao.jl registry dependencies (NOT included here):
+#   Yao, YaoBlocks, YaoArrayRegister, YaoPlots, ChainRulesCore
+# Those require Julia's Pkg system and the General registry.
+# This project is a faithful SIMULATION of Yao's API surface without them.
+
+name = "YaoModel"
+uuid = "a3e7b9c2-d4f1-4a8e-b5c9-0123456789ab"
+authors = ["AGENT_03 (PAX-CODER) <pax-coder@snapkittywest.dev>"]
+version = "0.1.0"
+
+[compat]
+julia = "1.6"
+
+[deps]
+# Standard library modules only (no external packages)
+# LinearAlgebra — matrix operations for statevector simulation
+# Test — test framework
+# Printf — formatted output in examples
+# These are all part of Julia's stdlib, no registration needed.
+
+[extras]
+Test = "8dfed614-e22c-358a-bcab-0cbcfb878ed9"
+
+[targets]
+test = ["Test"]
