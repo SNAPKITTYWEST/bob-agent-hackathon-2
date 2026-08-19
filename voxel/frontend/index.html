@@ -1,660 +1,110 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>SnapKitty — Quantum Voxel Viewer</title>
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SnapKitty Quantum Voxel UX</title>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
   }
-}
-</script>
-<style>
-  /* MagicaVoxel-style dark theme */
-  :root {
-    --bg-primary:   #1e1e24;
-    --bg-panel:     #28282f;
-    --bg-panel2:    #1a1a20;
-    --bg-hover:     #33333c;
-    --accent:       #ffb703;
-    --text-primary: #e8e8ee;
-    --text-muted:   #7f7f8f;
-    --border:       #3a3a45;
-    --panel-width:  240px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    font-family: 'Consolas', 'Courier New', monospace;
-    font-size: 12px;
-    display: flex;
-    height: 100vh;
-    overflow: hidden;
-  }
-
-  /* ---- Canvas area ---- */
-  #canvas-wrap {
-    flex: 1;
-    position: relative;
-    overflow: hidden;
-  }
-  canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-  #hud {
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    background: rgba(30,30,36,0.82);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 8px 12px;
-    pointer-events: none;
-    line-height: 1.6;
-  }
-  #hud span { color: var(--accent); }
-
-  /* ---- Right panel (MagicaVoxel layout) ---- */
-  #panel {
-    width: var(--panel-width);
-    background: var(--bg-panel);
-    border-left: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    flex-shrink: 0;
-  }
-  .panel-title-bar {
-    padding: 6px 10px;
-    background: var(--bg-panel2);
-    border-bottom: 1px solid var(--border);
-    font-size: 10px;
-    letter-spacing: 1px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-  }
-  .panel-section {
-    border-bottom: 1px solid var(--border);
-    padding: 8px 10px;
-  }
-  .panel-section-header {
-    font-size: 10px;
-    color: var(--accent);
-    letter-spacing: 0.8px;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-
-  /* Scene Outline */
-  .qubit-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 4px;
-    border-radius: 3px;
-    cursor: default;
-    transition: background 0.12s;
-  }
-  .qubit-row:hover { background: var(--bg-hover); }
-  .qubit-dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    border: 1px solid rgba(255,255,255,0.15);
-  }
-
-  /* Palette */
-  #palette-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 4px;
-  }
-  .palette-swatch {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-  }
-  .swatch-color {
-    width: 100%;
-    aspect-ratio: 1;
-    border-radius: 3px;
-    border: 1px solid rgba(255,255,255,0.08);
-    cursor: default;
-    transition: transform 0.1s;
-  }
-  .swatch-color:hover { transform: scale(1.1); }
-  .swatch-idx {
-    font-size: 9px;
-    color: var(--text-muted);
-  }
-  .swatch-label {
-    font-size: 8px;
-    color: var(--text-muted);
-    text-align: center;
-    line-height: 1.2;
-  }
-
-  /* Toolbar labels (MagicaVoxel UI string references) */
-  .panel-toolbar {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 6px 10px;
-    border-bottom: 1px solid var(--border);
-  }
-  .toolbar-item {
-    padding: 4px 6px;
-    border-radius: 3px;
-    cursor: default;
-    color: var(--text-muted);
-    font-size: 10px;
-    letter-spacing: 0.5px;
-    transition: background 0.12s, color 0.12s;
-  }
-  .toolbar-item:hover, .toolbar-item.active {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-  }
-  .toolbar-item.active { color: var(--accent); }
-
-  /* Render / Camera info */
-  .info-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 2px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-    font-size: 10px;
-  }
-  .info-row:last-child { border-bottom: none; }
-  .info-key { color: var(--text-muted); }
-  .info-val { color: var(--text-primary); }
-
-  #status-bar {
-    margin-top: auto;
-    background: var(--bg-panel2);
-    border-top: 1px solid var(--border);
-    padding: 5px 10px;
-    font-size: 10px;
-    color: var(--text-muted);
-  }
-</style>
+  </script>
+  <link rel="stylesheet" href="./src/styles.css" />
 </head>
 <body>
+  <div id="app-shell">
+    <aside id="tool-panel" aria-label="World tools">
+      <div class="brand-block">
+        <div class="brand-title">Quantum Voxel UX</div>
+        <div class="brand-meta">15 digital twin agents</div>
+      </div>
 
-<!-- ====================== 3D Canvas ====================== -->
-<div id="canvas-wrap">
-  <canvas id="c"></canvas>
-  <div id="hud">
-    <div>SnapKitty Quantum Voxel Viewer</div>
-    <div>Circuit: <span id="hud-circuit">Bell State |Φ⁺⟩</span></div>
-    <div>Source:  <span id="hud-source">—</span></div>
-    <div>Qubits:  <span id="hud-qubits">—</span></div>
-    <div>Voxels:  <span id="hud-voxels">—</span></div>
+      <section class="tool-section">
+        <div class="section-label">Mode</div>
+        <div class="segmented" role="group" aria-label="Interaction mode">
+          <button class="mode-button active" data-mode="select" title="Select voxel or agent">Select</button>
+          <button class="mode-button" data-mode="place" title="Place a voxel">Place</button>
+          <button class="mode-button" data-mode="remove" title="Remove a voxel">Remove</button>
+        </div>
+      </section>
+
+      <section class="tool-section">
+        <div class="section-label">Material</div>
+        <div id="material-grid" class="material-grid"></div>
+      </section>
+
+      <section class="tool-section">
+        <div class="section-label">Actions</div>
+        <div class="command-grid">
+          <button data-command="execute" title="Add a simulated execution marker">Execute</button>
+          <button data-command="measure" title="Measure selected voxel or agent">Measure</button>
+          <button data-command="pause" title="Pause world updates">Pause</button>
+          <button data-command="resume" title="Resume world updates">Resume</button>
+          <button data-command="reset" title="Reset to canonical sample world">Reset</button>
+          <button data-command="save" title="Persist world to localStorage">Save</button>
+          <button data-command="load" title="Load world from localStorage">Load</button>
+        </div>
+      </section>
+
+      <section class="tool-section">
+        <div class="section-label">Backend</div>
+        <p class="status-note">
+          Browser is visualization only. Quantum-world backend and QPU execution are not connected.
+        </p>
+      </section>
+    </aside>
+
+    <main id="canvas-wrap">
+      <canvas id="c" aria-label="Interactive voxel world"></canvas>
+      <div id="hud" aria-live="polite">
+        <div class="hud-title">SnapKitty Quantum Voxel World</div>
+        <div class="hud-grid">
+          <span>World</span><strong id="hud-status">-</strong>
+          <span>Voxels</span><strong id="hud-voxels">-</strong>
+          <span>Chunks</span><strong id="hud-chunks">-</strong>
+          <span>Agents</span><strong id="hud-agents">-</strong>
+          <span>Event</span><strong id="hud-event">-</strong>
+        </div>
+      </div>
+      <div id="feedback" role="status"></div>
+    </main>
+
+    <aside id="inspect-panel" aria-label="State inspector">
+      <section class="panel-section">
+        <div class="section-label">Selection</div>
+        <div id="selection-card" class="inspection-card">Nothing selected.</div>
+      </section>
+
+      <section class="panel-section">
+        <div class="section-label">Digital Twins</div>
+        <div id="agent-list" class="agent-list"></div>
+      </section>
+
+      <section class="panel-section">
+        <div class="section-label">Task Routing</div>
+        <div id="task-list" class="task-list"></div>
+      </section>
+
+      <section class="panel-section">
+        <div class="section-label">Execution Events</div>
+        <div id="event-log" class="event-log"></div>
+      </section>
+
+      <section class="panel-section">
+        <div class="section-label">Camera</div>
+        <div class="stat-grid">
+          <span>Mode</span><strong>Orbit</strong>
+          <span>X</span><strong id="cam-x">-</strong>
+          <span>Y</span><strong id="cam-y">-</strong>
+          <span>Z</span><strong id="cam-z">-</strong>
+        </div>
+      </section>
+    </aside>
   </div>
-</div>
 
-<!-- ====================== Right Panel ====================== -->
-<div id="panel">
-  <div class="panel-title-bar">Quantum Voxel Mode [V]</div>
-
-  <!-- MagicaVoxel toolbar labels -->
-  <div class="panel-toolbar">
-    <div class="toolbar-item active">Voxel Mode [V]</div>
-    <div class="toolbar-item">Paint</div>
-  </div>
-
-  <!-- Scene Outline -->
-  <div class="panel-section">
-    <div class="panel-section-header">Scene Outline</div>
-    <div id="qubit-list"><!-- populated by JS --></div>
-  </div>
-
-  <!-- Palette -->
-  <div class="panel-section">
-    <div class="panel-section-header">Palette</div>
-    <div id="palette-grid"></div>
-  </div>
-
-  <!-- Render -->
-  <div class="panel-section">
-    <div class="panel-section-header">Render</div>
-    <div class="info-row">
-      <span class="info-key">Tone Map</span>
-      <span class="info-val">ACES Filmic</span>
-    </div>
-    <div class="info-row">
-      <span class="info-key">Shadows</span>
-      <span class="info-val">PCFSoft</span>
-    </div>
-    <div class="info-row">
-      <span class="info-key">Fog</span>
-      <span class="info-val">Linear</span>
-    </div>
-    <div class="info-row">
-      <span class="info-key">Ground</span>
-      <span class="info-val">Reflective</span>
-    </div>
-  </div>
-
-  <!-- Camera -->
-  <div class="panel-section">
-    <div class="panel-section-header">Camera</div>
-    <div id="cam-info">
-      <div class="info-row"><span class="info-key">Mode</span>  <span class="info-val" id="cam-mode">Orbit</span></div>
-      <div class="info-row"><span class="info-key">Pos X</span> <span class="info-val" id="cam-x">—</span></div>
-      <div class="info-row"><span class="info-key">Pos Y</span> <span class="info-val" id="cam-y">—</span></div>
-      <div class="info-row"><span class="info-key">Pos Z</span> <span class="info-val" id="cam-z">—</span></div>
-      <div class="info-row"><span class="info-key">FOV</span>   <span class="info-val">60°</span></div>
-    </div>
-  </div>
-
-  <!-- Material -->
-  <div class="panel-section">
-    <div class="panel-section-header">Material</div>
-    <div class="info-row"><span class="info-key">Type</span>        <span class="info-val">Diffuse</span></div>
-    <div class="info-row"><span class="info-key">Roughness</span>   <span class="info-val">0.55</span></div>
-    <div class="info-row"><span class="info-key">Metalness</span>   <span class="info-val">0.15</span></div>
-    <div class="info-row"><span class="info-key">Ground Rough.</span><span class="info-val">0.15</span></div>
-    <div class="info-row"><span class="info-key">Ground Metal.</span><span class="info-val">0.40</span></div>
-  </div>
-
-  <div id="status-bar">BURT-IMMA — Phase 12 — QIR→Voxel</div>
-</div>
-
-<!-- ====================== Main JS ====================== -->
-<script type="module">
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
-// -----------------------------------------------------------------------
-// Quantum Color Mapping (canonical — indices 1-8)
-// Cherry-pick: SpaceVoxelScene SciFiPalette remapped to quantum semantics
-//   thrusterCyan  → |0⟩  blue   (index 2)
-//   thrusterOrange → |1⟩ red    (index 1)
-// -----------------------------------------------------------------------
-const QUANTUM_COLORS = {
-  1: 0xe63946,  // |1⟩  red
-  2: 0x457b9d,  // |0⟩  blue
-  3: 0xf1faee,  // superposition white
-  4: 0xffb703,  // gate gold
-  5: 0x2dc653,  // measured green
-  6: 0x8338ec,  // entangled purple
-  7: 0xfb5607,  // WORM orange
-  8: 0x00b4d8,  // sovereign agent cyan
-};
-
-const QUANTUM_LABELS = {
-  1: '|1⟩ red',
-  2: '|0⟩ blue',
-  3: 'Super. white',
-  4: 'Gate gold',
-  5: 'Meas. green',
-  6: 'Entgld. purp.',
-  7: 'WORM orange',
-  8: 'Sovrgn. cyan',
-};
-
-// -----------------------------------------------------------------------
-// Bell State QIR (hardcoded inline — also loadable from bell_state.json)
-// Uses "type" key as produced by all three language agents.
-// -----------------------------------------------------------------------
-const BELL_STATE_QIR = {
-  version: "0.1.0",
-  source_lang: "quipper",
-  qubits: 2,
-  cbits: 2,
-  ops: [
-    { type: "gate",    name: "H",  params: [], qubits: [0] },
-    { type: "gate",    name: "CX", params: [], qubits: [0, 1] },
-    { type: "measure", qubit: 0,   cbit: 0 },
-    { type: "measure", qubit: 1,   cbit: 1 },
-  ],
-  metadata: {
-    source_lang: "quipper",
-    version: "0.1.0",
-    unsupported: [
-      "higher-order circuit parameters — represented as flat gate sequence",
-      "dynamic lifting (classical feedback) — measurement only"
-    ],
-  },
-  resources: { gate_count: 2, depth: 3, t_count: 0, width: 2 },
-};
-
-// -----------------------------------------------------------------------
-// QIR → voxel list  { x, y, z, colorIndex }
-// Mirrors qir_to_vox.py logic exactly (same gate→color mapping)
-// -----------------------------------------------------------------------
-function gateColor(name, role) {
-  if (name === 'H') return 3;
-  if (['X','Y','Z'].includes(name)) return 1;
-  if (['CX','CNOT','CZ'].includes(name)) return role === 'control' ? 4 : 6;
-  if (['T','Tdg','S','Sdg','Rx','Ry','Rz','U1','U2','U3','CCX'].includes(name)) return 4;
-  return 4; // default: gate gold
-}
-
-function qirToVoxels(qir) {
-  const meta = qir.metadata || qir.meta || {};
-  const wormSealed = !!meta.worm_sealed;
-  const voxels = [];
-  let t = 0;
-
-  for (const op of (qir.ops || [])) {
-    const opType = op.type || op.op || '';
-
-    if (opType === 'barrier') continue; // no voxel, no time advance
-
-    if (opType === 'gate') {
-      const qs = op.qubits || [];
-      if (qs.length === 0) { t++; continue; }
-      if (qs.length === 1) {
-        const ci = wormSealed ? 7 : gateColor(op.name, 'solo');
-        voxels.push({ x: t, y: qs[0], z: 0, colorIndex: ci });
-      } else {
-        const ctrlCi = wormSealed ? 7 : gateColor(op.name, 'control');
-        const tgtCi  = wormSealed ? 7 : gateColor(op.name, 'target');
-        voxels.push({ x: t, y: qs[0], z: 0, colorIndex: ctrlCi });
-        for (let i = 1; i < qs.length; i++) {
-          voxels.push({ x: t, y: qs[i], z: 0, colorIndex: tgtCi });
-        }
-      }
-    } else if (opType === 'measure') {
-      const ci = wormSealed ? 7 : 5;
-      voxels.push({ x: t, y: op.qubit, z: 0, colorIndex: ci });
-    } else if (opType === 'reset') {
-      const ci = wormSealed ? 7 : 2;
-      voxels.push({ x: t, y: op.qubit, z: 0, colorIndex: ci });
-    }
-    t++;
-  }
-  return voxels;
-}
-
-// -----------------------------------------------------------------------
-// Three.js setup
-// Cherry-pick: Sunset Village — ACES tone mapping, PCFSoft shadows, fog
-// Cherry-pick: VR Tower — InstancedMesh for efficient many-voxel rendering
-// -----------------------------------------------------------------------
-const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(window.devicePixelRatio);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;  // PCFSoft (Sunset Village)
-renderer.toneMapping = THREE.ACESFilmicToneMapping;  // ACES filmic (Sunset Village)
-renderer.toneMappingExposure = 1.2;
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1e1e24);   // MagicaVoxel dark bg
-scene.fog = new THREE.FogExp2(0x1e1e24, 0.045); // Sunset Village fog
-
-const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 200);
-camera.position.set(8, 6, 12);
-camera.lookAt(2, 1, 0);
-
-const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
-controls.dampingFactor = 0.07;
-controls.target.set(2, 1, 0);
-controls.update();
-
-// -----------------------------------------------------------------------
-// Lighting — Cherry-pick: SpaceVoxelScene setupEnvironment()
-// -----------------------------------------------------------------------
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
-scene.add(ambientLight);
-
-const dirLight = new THREE.DirectionalLight(0xfff0dd, 1.2);
-dirLight.position.set(8, 12, 10);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.set(1024, 1024);
-dirLight.shadow.camera.near = 0.1;
-dirLight.shadow.camera.far = 80;
-dirLight.shadow.camera.left = -15;
-dirLight.shadow.camera.right = 15;
-dirLight.shadow.camera.top = 15;
-dirLight.shadow.camera.bottom = -15;
-scene.add(dirLight);
-
-// Fill light
-const fillLight = new THREE.DirectionalLight(0x4488ff, 0.4);
-fillLight.position.set(-5, 3, -8);
-scene.add(fillLight);
-
-// -----------------------------------------------------------------------
-// Ground — Cherry-pick: Sunset Village reflective ground
-// roughness: 0.15, metalness: 0.4
-// -----------------------------------------------------------------------
-const groundGeo  = new THREE.PlaneGeometry(40, 40);
-const groundMat  = new THREE.MeshStandardMaterial({
-  color: 0x23232c,
-  roughness: 0.15,   // Sunset Village
-  metalness: 0.40,   // Sunset Village
-});
-const ground = new THREE.Mesh(groundGeo, groundMat);
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = -0.52;
-ground.receiveShadow = true;
-scene.add(ground);
-
-// -----------------------------------------------------------------------
-// Axis labels (X = time, Y = qubit)
-// -----------------------------------------------------------------------
-function makeLabel(text, pos, color = '#7f7f8f') {
-  const canvas2 = document.createElement('canvas');
-  canvas2.width = 64; canvas2.height = 32;
-  const ctx = canvas2.getContext('2d');
-  ctx.fillStyle = color;
-  ctx.font = 'bold 18px Consolas, monospace';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, 32, 16);
-  const tex = new THREE.CanvasTexture(canvas2);
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
-  const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(0.8, 0.4, 1);
-  sprite.position.copy(pos);
-  return sprite;
-}
-
-// -----------------------------------------------------------------------
-// Build instanced voxels from QIR
-// Cherry-pick: VR Tower — THREE.InstancedMesh
-// -----------------------------------------------------------------------
-const VOXEL_SIZE = 0.9;
-const voxelGeo = new THREE.BoxGeometry(VOXEL_SIZE, VOXEL_SIZE, VOXEL_SIZE);
-
-// Group voxels by color index for instanced rendering
-function buildVoxelMeshes(voxels) {
-  const groups = {};
-  for (const v of voxels) {
-    if (!groups[v.colorIndex]) groups[v.colorIndex] = [];
-    groups[v.colorIndex].push(v);
-  }
-
-  const meshes = [];
-  const dummy = new THREE.Object3D();
-
-  for (const [ci, group] of Object.entries(groups)) {
-    const hexColor = QUANTUM_COLORS[parseInt(ci)] || 0xffffff;
-    const mat = new THREE.MeshStandardMaterial({
-      color: hexColor,
-      roughness: 0.55,
-      metalness: 0.15,
-      emissive: hexColor,
-      emissiveIntensity: 0.08,
-    });
-    // InstancedMesh — VR Tower pattern
-    const mesh = new THREE.InstancedMesh(voxelGeo, mat, group.length);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-
-    group.forEach((v, idx) => {
-      dummy.position.set(v.x, v.y, v.z);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(idx, dummy.matrix);
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    meshes.push(mesh);
-  }
-  return meshes;
-}
-
-// -----------------------------------------------------------------------
-// Outline / wireframe for each voxel (subtle)
-// -----------------------------------------------------------------------
-function buildWireframes(voxels) {
-  const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(VOXEL_SIZE, VOXEL_SIZE, VOXEL_SIZE));
-  const mat   = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12 });
-  const group = new THREE.Group();
-  for (const v of voxels) {
-    const line = new THREE.LineSegments(edges, mat);
-    line.position.set(v.x, v.y, v.z);
-    group.add(line);
-  }
-  return group;
-}
-
-// -----------------------------------------------------------------------
-// Populate UI panel
-// -----------------------------------------------------------------------
-function populatePanel(qir, voxels) {
-  // HUD
-  document.getElementById('hud-source').textContent  = qir.source_lang || '—';
-  document.getElementById('hud-qubits').textContent  = qir.qubits ?? '—';
-  document.getElementById('hud-voxels').textContent  = voxels.length;
-
-  // Scene Outline — qubit list
-  const qubitList = document.getElementById('qubit-list');
-  qubitList.innerHTML = '';
-  const nq = qir.qubits || 0;
-  const qubitColors = [0x457b9d, 0x8338ec, 0x2dc653, 0xffb703, 0xe63946, 0x00b4d8, 0xfb5607, 0xf1faee];
-  for (let q = 0; q < nq; q++) {
-    const row = document.createElement('div');
-    row.className = 'qubit-row';
-    const dot = document.createElement('div');
-    dot.className = 'qubit-dot';
-    const hex = '#' + (qubitColors[q % qubitColors.length]).toString(16).padStart(6, '0');
-    dot.style.background = hex;
-    const label = document.createElement('span');
-    label.textContent = 'q' + q;
-    row.appendChild(dot);
-    row.appendChild(label);
-    qubitList.appendChild(row);
-  }
-
-  // Palette grid — 8 quantum colors
-  const grid = document.getElementById('palette-grid');
-  grid.innerHTML = '';
-  for (let idx = 1; idx <= 8; idx++) {
-    const hex = '#' + QUANTUM_COLORS[idx].toString(16).padStart(6, '0');
-    const swatch = document.createElement('div');
-    swatch.className = 'palette-swatch';
-    const colorDiv = document.createElement('div');
-    colorDiv.className = 'swatch-color';
-    colorDiv.style.background = hex;
-    colorDiv.title = QUANTUM_LABELS[idx];
-    const idxDiv = document.createElement('div');
-    idxDiv.className = 'swatch-idx';
-    idxDiv.textContent = idx;
-    const labelDiv = document.createElement('div');
-    labelDiv.className = 'swatch-label';
-    // Short label to fit in 4-column grid
-    const shortLabels = {
-      1:'|1⟩',2:'|0⟩',3:'Sup.',4:'Gate',5:'Meas.',6:'Entg.',7:'WORM',8:'Sovr.'
-    };
-    labelDiv.textContent = shortLabels[idx];
-    swatch.appendChild(colorDiv);
-    swatch.appendChild(idxDiv);
-    swatch.appendChild(labelDiv);
-    grid.appendChild(swatch);
-  }
-}
-
-// -----------------------------------------------------------------------
-// Main: load QIR, build scene
-// -----------------------------------------------------------------------
-async function loadQIR() {
-  // Try to load bell_state.json from same directory; fall back to inline
-  let qir = BELL_STATE_QIR;
-  try {
-    const resp = await fetch('./bell_state.json');
-    if (resp.ok) qir = await resp.json();
-  } catch (_) { /* use inline */ }
-  return qir;
-}
-
-const qir = await loadQIR();
-const voxels = qirToVoxels(qir);
-
-// Build Three.js objects
-const voxelMeshes = buildVoxelMeshes(voxels);
-voxelMeshes.forEach(m => scene.add(m));
-scene.add(buildWireframes(voxels));
-
-// Axis labels: time steps
-const maxT = voxels.reduce((m, v) => Math.max(m, v.x), 0);
-for (let t = 0; t <= maxT; t++) {
-  scene.add(makeLabel(`t${t}`, new THREE.Vector3(t, -0.9, 0), '#ffb703'));
-}
-// Qubit labels
-for (let q = 0; q < (qir.qubits || 0); q++) {
-  scene.add(makeLabel(`q${q}`, new THREE.Vector3(-0.9, q, 0), '#00b4d8'));
-}
-
-populatePanel(qir, voxels);
-
-// -----------------------------------------------------------------------
-// Resize handler
-// -----------------------------------------------------------------------
-function resize() {
-  const w = canvas.parentElement.clientWidth;
-  const h = canvas.parentElement.clientHeight;
-  renderer.setSize(w, h);
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-}
-resize();
-window.addEventListener('resize', resize);
-
-// -----------------------------------------------------------------------
-// Animate — gentle orbit + camera info update
-// -----------------------------------------------------------------------
-let orbitAngle = 0;
-const orbitRadius = camera.position.length();
-
-function animate() {
-  requestAnimationFrame(animate);
-
-  // Gentle auto-orbit (overridden when user interacts)
-  orbitAngle += 0.003;
-  // Only auto-orbit if controls haven't been touched recently
-  if (!controls._autoRotateOverride) {
-    camera.position.x = Math.sin(orbitAngle) * orbitRadius * 0.7 + 2;
-    camera.position.z = Math.cos(orbitAngle) * orbitRadius * 0.7;
-    camera.position.y = 6 + Math.sin(orbitAngle * 0.5) * 1.5;
-    camera.lookAt(controls.target);
-  }
-
-  controls.update();
-
-  // Camera info in panel
-  document.getElementById('cam-x').textContent = camera.position.x.toFixed(1);
-  document.getElementById('cam-y').textContent = camera.position.y.toFixed(1);
-  document.getElementById('cam-z').textContent = camera.position.z.toFixed(1);
-
-  renderer.render(scene, camera);
-}
-animate();
-
-// Pause auto-orbit on user interaction
-controls.addEventListener('start', () => { controls._autoRotateOverride = true; });
-
-</script>
+  <script type="module" src="./src/app.js"></script>
 </body>
 </html>
