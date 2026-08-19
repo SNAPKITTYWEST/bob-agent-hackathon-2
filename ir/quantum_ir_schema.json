@@ -1,0 +1,132 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QuantumIR",
+  "description": "Shared Quantum Intermediate Representation contract for the BOB Agent Hackathon 2 multi-language quantum frontend pipeline.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["version", "source_lang", "qubits", "cbits", "ops", "metadata", "resources"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version string",
+      "const": "0.1.0"
+    },
+    "source_lang": {
+      "type": "string",
+      "description": "Source language that produced this QIR",
+      "enum": ["guppy", "quipper", "yao", "qasm", "unknown"]
+    },
+    "qubits": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of qubits in the circuit"
+    },
+    "cbits": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of classical bits in the circuit"
+    },
+    "ops": {
+      "type": "array",
+      "description": "Sequential list of quantum operations",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["type", "name", "qubits"],
+            "properties": {
+              "type": {"type": "string", "const": "gate"},
+              "name": {"type": "string"},
+              "params": {
+                "type": "array",
+                "items": {"type": "number"},
+                "default": []
+              },
+              "qubits": {
+                "type": "array",
+                "items": {"type": "integer", "minimum": 0},
+                "minItems": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type", "qubit", "cbit"],
+            "properties": {
+              "type": {"type": "string", "const": "measure"},
+              "qubit": {"type": "integer", "minimum": 0},
+              "cbit": {"type": "integer", "minimum": 0}
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type", "qubits"],
+            "properties": {
+              "type": {"type": "string", "const": "barrier"},
+              "qubits": {
+                "type": "array",
+                "items": {"type": "integer", "minimum": 0}
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type", "qubit"],
+            "properties": {
+              "type": {"type": "string", "const": "reset"},
+              "qubit": {"type": "integer", "minimum": 0}
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["source_lang", "version", "unsupported"],
+      "properties": {
+        "source_lang": {"type": "string"},
+        "version": {"type": "string"},
+        "unsupported": {
+          "type": "array",
+          "description": "Explicit list of source semantics NOT representable in QIR v0.1. MUST never be empty for Guppy/Quipper/Yao frontends.",
+          "items": {"type": "string"},
+          "minItems": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "resources": {
+      "type": "object",
+      "required": ["gate_count", "depth", "t_count", "width"],
+      "properties": {
+        "gate_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of gate operations (excludes measure/barrier/reset)"
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Circuit depth — length of the critical path through the op DAG"
+        },
+        "t_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of T-gate applications (resource metric for fault-tolerant quantum computing)"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum number of qubits in use at any point (circuit width)"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "_comment": "Produced by AGENT_02 (NETON) as the shared IR contract. AGENT_01 (BOB/Quipper) and AGENT_03 (Yao) should consume this schema."
+}
