@@ -1,0 +1,82 @@
+cabal-version:      2.4
+name:               quipper
+version:            0.1.0
+synopsis:           Quipper-style quantum circuit frontend with shared QIR lowering
+description:
+  Quipper frontend for the BOB Agent Hackathon 2 shared Quantum IR.
+  Provides a faithful semantic representation of Quipper's circuit model
+  (without requiring the GHC 8 / Quipper toolchain), lowers to the
+  shared QIRCircuit type, and serializes to JSON per ir/quantum_ir_schema.json.
+  .
+  This package is AGENT_01 (BOB) output. AGENT_02 (Guppy/NETON) and
+  AGENT_03 (Yao.jl/PAX-CODER) implement against the same IR schema.
+
+author:             AGENT_01 (BOB) / SNAPKITTYWEST
+license:            MIT
+license-file:       ../LICENSE
+category:           Quantum, Language
+build-type:         Simple
+extra-source-files: ../ir/quantum_ir_schema.json
+
+-- ── IR library (shared with other agents) ────────────────────────────────────
+
+library ir
+  default-language: Haskell2010
+  hs-source-dirs:   ../ir
+  exposed-modules:
+    QuantumIR
+    ToJSON
+  build-depends:
+    base          >= 4.14 && < 5
+  , aeson         >= 2.0  && < 2.3
+  , vector        >= 0.12 && < 0.14
+  ghc-options: -Wall -Wcompat -Wno-unused-do-bind
+
+-- ── Quipper frontend library ──────────────────────────────────────────────────
+
+library
+  default-language:   Haskell2010
+  hs-source-dirs:     src
+  exposed-modules:
+    Quipper.Syntax
+    Quipper.Primitives
+    Quipper.ToIR
+    Quipper.Examples
+  build-depends:
+    base            >= 4.14 && < 5
+  , ir
+  , aeson           >= 2.0  && < 2.3
+  , bytestring      >= 0.10 && < 0.13
+  , mtl             >= 2.2  && < 2.4
+  , vector          >= 0.12 && < 0.14
+  ghc-options: -Wall -Wcompat -Wno-unused-do-bind
+
+-- ── Examples executable ───────────────────────────────────────────────────────
+
+executable quipper-examples
+  default-language: Haskell2010
+  main-is:          Main.hs
+  hs-source-dirs:   app
+  build-depends:
+    base   >= 4.14 && < 5
+  , quipper
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+
+-- ── Test suite ────────────────────────────────────────────────────────────────
+
+test-suite quipper-spec
+  default-language: Haskell2010
+  type:             exitcode-stdio-1.0
+  main-is:          Spec.hs
+  hs-source-dirs:   test
+  other-modules:    QuipperSpec
+  build-depends:
+    base            >= 4.14 && < 5
+  , quipper
+  , ir
+  , aeson           >= 2.0  && < 2.3
+  , aeson-pretty    >= 0.8  && < 0.9
+  , bytestring      >= 0.10 && < 0.13
+  , vector          >= 0.12 && < 0.14
+  , hspec           >= 2.10 && < 2.12
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
