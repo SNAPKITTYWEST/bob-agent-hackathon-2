@@ -239,7 +239,7 @@ function pick(event) {
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
 
-  const objects = [...agentGroup.children, ...voxelGroup.children, ground];
+  const objects = [agentGroup, voxelGroup, ground];
   const hits = raycaster.intersectObjects(objects, true);
   for (const hit of hits) {
     const object = findPickObject(hit.object);
@@ -341,6 +341,34 @@ function rebuildVoxelMeshes() {
   }
 }
 
+function buildAgentMesh(agent) {
+  const materialDef = MATERIALS[agent.materialId] || MATERIALS["agent-cyan"];
+  const color = new THREE.Color(materialDef.color);
+  const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.12, roughness: 0.5, metalness: 0.15 });
+  const group = new THREE.Group();
+  group.userData.kind = "agent";
+  group.userData.agentId = agent.id;
+
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.44, 0.24), mat);
+  torso.position.y = 0.52; torso.castShadow = true; group.add(torso);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.21, 10, 10), mat);
+  head.position.y = 0.98; head.castShadow = true; group.add(head);
+  const earGeo = new THREE.ConeGeometry(0.07, 0.17, 7);
+  const earL = new THREE.Mesh(earGeo, mat); earL.position.set(-0.11, 1.2, 0); earL.rotation.z = -0.22; group.add(earL);
+  const earR = new THREE.Mesh(earGeo, mat); earR.position.set(0.11, 1.2, 0); earR.rotation.z = 0.22; group.add(earR);
+  const eyeM = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const pupM = new THREE.MeshBasicMaterial({ color: 0x111111 });
+  [-0.08, 0.08].forEach(x => {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.042, 7, 7), eyeM); e.position.set(x, 1.01, 0.19); group.add(e);
+    const p = new THREE.Mesh(new THREE.SphereGeometry(0.026, 7, 7), pupM); p.position.set(x, 1.01, 0.21); group.add(p);
+  });
+  const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.34, 7), mat); legL.position.set(-0.11, 0.17, 0); group.add(legL);
+  const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.34, 7), mat); legR.position.set(0.11, 0.17, 0); group.add(legR);
+
+  group.position.set(agent.coordinate.x, agent.coordinate.y, agent.coordinate.z);
+  return group;
+}
+
 function rebuildAgentSprites() {
   disposeGroup(agentGroup);
   scene.remove(agentGroup);
@@ -348,36 +376,7 @@ function rebuildAgentSprites() {
   scene.add(agentGroup);
 
   for (const agent of listAgents(world)) {
-    const materialDef = MATERIALS[agent.materialId] || MATERIALS["agent-cyan"];
-    const base = new THREE.Mesh(
-      markerGeometry,
-      new THREE.MeshStandardMaterial({
-        color: materialDef.color,
-        emissive: materialDef.color,
-        emissiveIntensity: 0.18,
-        roughness: 0.44,
-        metalness: 0.2,
-      }),
-    );
-    base.position.set(agent.coordinate.x, agent.coordinate.y - 0.44, agent.coordinate.z);
-    base.castShadow = true;
-    base.receiveShadow = true;
-    base.userData.kind = "agent";
-    base.userData.agentId = agent.id;
-    agentGroup.add(base);
-
-    const sprite = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: textureFor(agent.skinAsset),
-        transparent: true,
-        depthWrite: false,
-      }),
-    );
-    sprite.scale.set(1.35, 2.05, 1);
-    sprite.position.set(agent.coordinate.x, agent.coordinate.y + 0.78, agent.coordinate.z);
-    sprite.userData.kind = "agent";
-    sprite.userData.agentId = agent.id;
-    agentGroup.add(sprite);
+    agentGroup.add(buildAgentMesh(agent));
   }
 }
 

@@ -1,0 +1,4 @@
+MCFLAGS = --grade hlc.gc --make --verbose
+MLFLAGS = --grade hlc.gc
+MLLIBS = 
+MGNUCFLAGS = -O2

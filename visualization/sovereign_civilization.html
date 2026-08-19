@@ -181,7 +181,6 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
         // ===== SIMULATION STATE =====
         
@@ -412,13 +411,7 @@
             mesh.userData.pulsePhase = Math.random() * Math.PI * 2;
         });
 
-        // ===== CHARACTER LOADING =====
-        
-        const loader = new GLTFLoader();
-        const characterMeshes = {};
-        const twinMeshes = {};
-        const speechBubbles = {};
-        let modelsLoaded = 0;
+        // ===== CHARACTER MESHES (procedural) =====
 
         const characterColors = {
             'Isabella_Rodriguez': 0xd4a574,
@@ -426,54 +419,55 @@
             'Maria_Lopez': 0xff69b4
         };
 
-        function loadCharacter(agent, isTwin = false) {
-            loader.load(
-                'https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb',
-                (gltf) => {
-                    const model = gltf.scene;
-                    model.scale.set(0.5, 0.5, 0.5);
-                    
-                    if (isTwin) {
-                        model.traverse((child) => {
-                            if (child.isMesh) {
-                                child.material = child.material.clone();
-                                child.material.emissive = new THREE.Color(0x00ffff);
-                                child.material.emissiveIntensity = 0.5;
-                                child.material.transparent = true;
-                                child.material.opacity = 0.85;
-                            }
-                        });
-                        model.position.set(agent.position.x, agent.position.y, agent.position.z);
-                        spaceScene.add(model);
-                        twinMeshes[agent.agentId] = { model, mixer: new THREE.AnimationMixer(model), clips: gltf.animations };
-                        
-                        // Add voxel grid overlay
-                        const voxelGrid = createVoxelGrid(agent.agentId);
-                        voxelGrid.position.set(3, 2, 0);
-                        model.add(voxelGrid);
-                    } else {
-                        model.traverse((child) => {
-                            if (child.isMesh) {
-                                child.material = child.material.clone();
-                                child.material.color = new THREE.Color(characterColors[agent.name]);
-                                child.castShadow = true;
-                            }
-                        });
-                        model.position.set(agent.position.x, agent.position.y, agent.position.z);
-                        realityScene.add(model);
-                        characterMeshes[agent.name] = { model, mixer: new THREE.AnimationMixer(model), clips: gltf.animations };
-                    }
-                    
-                    modelsLoaded++;
-                },
-                undefined,
-                (error) => console.error('Error loading model:', error)
-            );
+        const characterMeshes = {};
+        const twinMeshes = {};
+        const speechBubbles = {};
+
+        function buildCatMesh(color, emissiveIntensity = 0.08, opacity = 1.0) {
+            const c = new THREE.Color(color);
+            const opts = { color: c, emissive: c, emissiveIntensity, roughness: 0.5, metalness: 0.1 };
+            if (opacity < 1) { opts.transparent = true; opts.opacity = opacity; }
+            const mat = new THREE.MeshStandardMaterial(opts);
+            const wm = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const pm = new THREE.MeshBasicMaterial({ color: 0x111111 });
+            const g = new THREE.Group();
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 0.45), mat); torso.position.y = 0.9; torso.castShadow = true; g.add(torso);
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 12), mat); head.position.y = 1.78; head.castShadow = true; g.add(head);
+            const earGeo = new THREE.ConeGeometry(0.12, 0.28, 6);
+            const eL = new THREE.Mesh(earGeo, mat); eL.position.set(-0.2, 2.12, 0); eL.rotation.z = -0.28; g.add(eL);
+            const eR = new THREE.Mesh(earGeo, mat); eR.position.set(0.2, 2.12, 0); eR.rotation.z = 0.28; g.add(eR);
+            [-0.14, 0.14].forEach(x => {
+                const eye = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 8), wm); eye.position.set(x, 1.84, 0.34); g.add(eye);
+                const pup = new THREE.Mesh(new THREE.SphereGeometry(0.048, 8, 8), pm); pup.position.set(x, 1.84, 0.37); g.add(pup);
+            });
+            const legGeo = new THREE.CylinderGeometry(0.1, 0.09, 0.55, 8);
+            [-0.2, 0.2].forEach(x => { const l = new THREE.Mesh(legGeo, mat); l.position.set(x, 0.28, 0); l.castShadow = true; g.add(l); });
+            const armGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.5, 8);
+            const aL = new THREE.Mesh(armGeo, mat); aL.position.set(-0.44, 0.95, 0); aL.rotation.z = 0.4; g.add(aL);
+            const aR = new THREE.Mesh(armGeo, mat); aR.position.set(0.44, 0.95, 0); aR.rotation.z = -0.4; g.add(aR);
+            const tail = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.055, 8, 20, Math.PI * 1.1), mat); tail.position.set(-0.36, 0.5, -0.24); tail.rotation.x = 0.6; tail.rotation.y = 0.4; g.add(tail);
+            g.userData.legL = g.children.find(c => c.position.x < -0.1 && c.position.y < 0.5);
+            g.userData.legR = g.children.find(c => c.position.x > 0.1 && c.position.y < 0.5);
+            g.userData.armL = aL; g.userData.armR = aR; g.userData.head = head; g.userData.tail = tail;
+            return g;
         }
 
-        // Load all characters
-        agents.forEach(agent => loadCharacter(agent, false));
-        twins.forEach(twin => loadCharacter(twin, true));
+        agents.forEach(agent => {
+            const model = buildCatMesh(characterColors[agent.name]);
+            model.position.set(agent.position.x, agent.position.y, agent.position.z);
+            realityScene.add(model);
+            characterMeshes[agent.name] = { model };
+        });
+
+        twins.forEach(twin => {
+            const model = buildCatMesh(0x00b4d8, 0.55, 0.82);
+            model.position.set(twin.position.x, twin.position.y, twin.position.z);
+            spaceScene.add(model);
+            twinMeshes[twin.agentId] = { model };
+            const voxelGrid = createVoxelGrid(twin.agentId);
+            voxelGrid.position.set(1.4, 1.8, 0);
+            model.add(voxelGrid);
+        });
 
         function createVoxelGrid(agentId) {
             const group = new THREE.Group();
@@ -715,24 +709,28 @@
                 solveQUBO();
             }
 
-            // Update physics for reality agents
+            // Update physics + procedural walk animation for reality agents
             agents.forEach(agent => {
                 if (agent.targetLocation && locations[agent.targetLocation]) {
                     updatePhysics(agent, locations[agent.targetLocation], deltaTime);
-                    
                     const mesh = characterMeshes[agent.name];
                     if (mesh) {
                         mesh.model.position.set(agent.position.x, agent.position.y, agent.position.z);
-                        
-                        // Update animation
-                        if (agent.currentAnimation === 'walking' && mesh.clips.length > 0) {
-                            const walkClip = mesh.clips.find(c => c.name.toLowerCase().includes('walk'));
-                            if (walkClip) {
-                                const action = mesh.mixer.clipAction(walkClip);
-                                action.play();
-                            }
+                        if (agent.currentAnimation === 'walking') {
+                            const ph = simTime * 6;
+                            if (mesh.model.userData.legL) mesh.model.userData.legL.rotation.x = Math.sin(ph) * 0.5;
+                            if (mesh.model.userData.legR) mesh.model.userData.legR.rotation.x = Math.sin(ph + Math.PI) * 0.5;
+                            if (mesh.model.userData.armL) mesh.model.userData.armL.rotation.x = Math.sin(ph + Math.PI) * 0.3;
+                            if (mesh.model.userData.armR) mesh.model.userData.armR.rotation.x = Math.sin(ph) * 0.3;
+                            mesh.model.position.y = Math.abs(Math.sin(ph)) * 0.08;
+                        } else {
+                            if (mesh.model.userData.head) mesh.model.userData.head.position.y = 1.78 + Math.sin(simTime * 1.2) * 0.03;
+                            if (mesh.model.userData.tail) mesh.model.userData.tail.rotation.z = Math.sin(simTime * 1.8) * 0.2;
                         }
-                        mesh.mixer.update(deltaTime);
+                        // Face toward target
+                        const tgt = locations[agent.targetLocation];
+                        const dx = tgt.x - mesh.model.position.x, dz = tgt.z - mesh.model.position.z;
+                        if (Math.sqrt(dx*dx+dz*dz) > 0.3) mesh.model.rotation.y = Math.atan2(dx, dz);
                     }
                 }
             });
@@ -741,11 +739,10 @@
             twins.forEach(twin => {
                 if (twin.assignedResource && resourceNodes[twin.assignedResource]) {
                     updateTwinPhysics(twin, resourceNodes[twin.assignedResource].pos, deltaTime);
-                    
                     const mesh = twinMeshes[twin.agentId];
                     if (mesh) {
                         mesh.model.position.set(twin.position.x, twin.position.y, twin.position.z);
-                        mesh.mixer.update(deltaTime);
+                        if (mesh.model.userData.tail) mesh.model.userData.tail.rotation.z = Math.sin(simTime * 2.1 + twin.position.x) * 0.3;
                     }
                 }
             });
@@ -785,16 +782,42 @@
             spaceRenderer.render(spaceScene, spaceCamera);
         }
 
-        // Start when models are loaded
-        function checkModelsLoaded() {
-            if (modelsLoaded >= agents.length + twins.length) {
-                updateNeedsHUD();
-                animate();
+        // Click-to-inspect on reality viewport
+        const realityRaycaster = new THREE.Raycaster();
+        const realityPointer = new THREE.Vector2();
+        const infoBox = document.createElement('div');
+        infoBox.style.cssText = 'position:absolute;top:50px;right:10px;background:rgba(0,0,0,0.85);color:#0f0;border:1px solid #0f0;padding:10px;font-size:12px;max-width:200px;display:none;border-radius:4px;pointer-events:none';
+        document.getElementById('realityViewport').appendChild(infoBox);
+
+        realityRenderer.domElement.addEventListener('click', e => {
+            const rect = realityRenderer.domElement.getBoundingClientRect();
+            realityPointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            realityPointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            realityRaycaster.setFromCamera(realityPointer, realityCamera);
+            const allMeshes = [];
+            Object.entries(characterMeshes).forEach(([name, m]) => {
+                m.model.traverse(c => { if (c.isMesh) { c.userData._agentName = name; allMeshes.push(c); } });
+            });
+            const hits = realityRaycaster.intersectObjects(allMeshes);
+            if (hits.length) {
+                const name = hits[0].object.userData._agentName;
+                const agent = agents.find(a => a.name === name);
+                if (agent) {
+                    infoBox.style.display = 'block';
+                    infoBox.innerHTML = `<strong>${name.replace('_',' ')}</strong><br>
+                    Intention: ${agent.currentIntention || 'idle'}<br>
+                    Target: ${agent.targetLocation || '-'}<br>
+                    Hunger: ${agent.needs.hunger.toFixed(0)}%<br>
+                    Energy: ${agent.needs.energy.toFixed(0)}%<br>
+                    Social: ${agent.needs.social.toFixed(0)}%`;
+                }
             } else {
-                setTimeout(checkModelsLoaded, 100);
+                infoBox.style.display = 'none';
             }
-        }
-        checkModelsLoaded();
+        });
+
+        updateNeedsHUD();
+        animate();
 
         // Handle window resize
         window.addEventListener('resize', () => {

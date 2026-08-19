@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SnapKitty Quantum Sims</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#0d1117;font-family:"Segoe UI",system-ui,sans-serif;color:#e6edf3}
+#shell{display:grid;grid-template-columns:220px 1fr 240px;height:100vh}
+#left-panel{background:#161b22;border-right:1px solid #30363d;display:flex;flex-direction:column;overflow:auto}
+#viewport{position:relative;overflow:hidden;background:#0d1117}
+#viewport canvas{display:block;width:100%;height:100%}
+#right-panel{background:#161b22;border-left:1px solid #30363d;display:flex;flex-direction:column;overflow:auto;gap:0}
+
+.panel-block{padding:12px;border-bottom:1px solid #30363d}
+.panel-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8b949e;margin-bottom:8px}
+.brand{background:#0d1117;padding:14px 12px}
+.brand h2{font-size:15px;color:#29a8e0}
+.brand p{font-size:11px;color:#8b949e;margin-top:3px}
+
+button{background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;transition:border-color .15s}
+button:hover{border-color:#29a8e0}
+button.active,button.selected{background:#1f4d6e;border-color:#29a8e0}
+.btn-row{display:flex;gap:6px;flex-wrap:wrap}
+
+.char-card{border:1px solid #30363d;border-radius:6px;padding:8px;cursor:pointer;margin-bottom:6px;transition:border-color .15s}
+.char-card:hover{border-color:#29a8e0}
+.char-card.selected{border-color:#ffd166;background:#1c1a10}
+.char-name{font-size:13px;font-weight:600}
+.char-state{font-size:11px;color:#8b949e;margin-top:2px}
+
+#needs-hud{padding:12px}
+#event-log{padding:8px 12px;font-size:11px;color:#8b949e;max-height:180px;overflow:auto}
+.event-row{padding:2px 0;border-bottom:1px solid #21262d;font-size:10px}
+.event-row span{color:#3fb950}
+
+#mode-bar{position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  background:rgba(13,17,23,0.88);border:1px solid #30363d;border-radius:8px;
+  padding:6px 12px;display:flex;gap:8px;align-items:center;backdrop-filter:blur(6px)}
+#mode-label{font-size:12px;color:#ffd166;font-weight:600}
+#ctrl-hint{font-size:11px;color:#8b949e}
+#fps-counter{position:absolute;bottom:10px;right:10px;font-size:11px;color:#30363d}
+#quantum-badge{position:absolute;top:12px;right:12px;
+  background:rgba(0,100,200,0.25);border:1px solid #29a8e0;
+  border-radius:6px;padding:5px 10px;font-size:11px;color:#29a8e0}
+
+.obj-btn{display:flex;align-items:center;gap:6px;padding:5px 8px;background:#21262d;
+  border:1px solid #30363d;border-radius:5px;cursor:pointer;font-size:12px;margin:2px 0;width:100%}
+.obj-btn:hover{border-color:#29a8e0}
+.obj-chip{width:12px;height:12px;border-radius:2px;display:inline-block}
+</style>
+</head>
+<body>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+
+<div id="shell">
+  <!-- LEFT -->
+  <div id="left-panel">
+    <div class="brand">
+      <h2>SnapKitty Quantum Sims</h2>
+      <p>Embodiment engine · AI optional</p>
+    </div>
+    <div class="panel-block">
+      <div class="panel-title">Characters</div>
+      <div id="char-list"></div>
+    </div>
+    <div class="panel-block">
+      <div class="panel-title">Spawn Object</div>
+      <div id="obj-palette"></div>
+    </div>
+    <div class="panel-block">
+      <div class="panel-title">Controls</div>
+      <div style="font-size:11px;color:#8b949e;line-height:1.8">
+        <b style="color:#e6edf3">Click character</b> → select<br>
+        <b style="color:#e6edf3">Click ground</b> → walk there<br>
+        <b style="color:#e6edf3">Click object</b> → interact<br>
+        <b style="color:#e6edf3">WASD / arrows</b> → move<br>
+        <b style="color:#e6edf3">Shift</b> → run<br>
+        <b style="color:#e6edf3">Tab</b> → cycle characters<br>
+        <b style="color:#e6edf3">Space</b> → toggle AI on/off
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEWPORT -->
+  <div id="viewport">
+    <canvas id="c"></canvas>
+    <div id="mode-bar">
+      <span id="mode-label">SELECT</span>
+      <span id="ctrl-hint">click a character to take control</span>
+    </div>
+    <div id="fps-counter">-- fps</div>
+    <div id="quantum-badge">⬡ Quantum World Active</div>
+  </div>
+
+  <!-- RIGHT -->
+  <div id="right-panel">
+    <div id="needs-hud" class="panel-block">
+      <div class="panel-title">Selected Agent</div>
+      <div id="needs-content" style="color:#8b949e;font-size:12px">No character selected.</div>
+    </div>
+    <div class="panel-block">
+      <div class="panel-title">World Events</div>
+      <div id="event-log"></div>
+    </div>
+    <div class="panel-block">
+      <div class="panel-title">Quantum State</div>
+      <div id="quantum-state" style="font-size:11px;color:#8b949e;line-height:1.8">
+        World clock: <span id="qclock" style="color:#29a8e0">0</span>s<br>
+        Entities: <span id="qentities" style="color:#3fb950">0</span><br>
+        QUBO: <span id="qqubo" style="color:#ffd166">IDLE</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import {
+  World, Vec3, WorldObject, BasicAI, OBJECT_DEFS, WALK_SPEED, RUN_SPEED, TICK
+} from "./sims-engine.js";
+import {
+  createScene, buildObjectMesh, buildHumanoidMesh, applySkeleton,
+  createBubble, updateBubblePos, renderNeedsHUD,
+  buildQuantumOverlay, pickCharacter, pickGround, pickObject
+} from "./sims-renderer.js";
+
+// ── Setup ─────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const { renderer, scene, camera, controls } = createScene(canvas);
+const viewport = document.getElementById('viewport');
+
+// ── World ─────────────────────────────────────────────────────
+const world = new World(36, 36);
+
+// Objects: a small house layout
+const objs = [
+  ['bed',      new Vec3(-6,0,-4)],
+  ['fridge',   new Vec3(-3,0, 6)],
+  ['sofa',     new Vec3( 2,0, 2)],
+  ['computer', new Vec3( 6,0,-3)],
+  ['table',    new Vec3( 1,0,-5)],
+  ['door',     new Vec3( 0,0, 8)],
+  ['tree',     new Vec3(-8,0, 6)],
+  ['tree',     new Vec3( 8,0,-7)],
+];
+for(const [type, pos] of objs) world.addObject(type, pos);
+
+// Characters
+const CHARS = [
+  { name:'Isabella', color:0xd4a574, accent:0x7c4dff },
+  { name:'Klaus',    color:0x6495ed, accent:0xe63946 },
+  { name:'Maria',    color:0xff69b4, accent:0x2dc653 },
+];
+const startPositions = [new Vec3(-4,0,0), new Vec3(2,0,-2), new Vec3(4,0,4)];
+for(let i=0;i<CHARS.length;i++){
+  world.spawnCharacter(CHARS[i].name, CHARS[i].color, startPositions[i], true);
+}
+world.buildNav();
+
+// ── Three.js object meshes ────────────────────────────────────
+const objMeshes = new Map(); // id -> group
+for(const obj of world.objects){
+  const g = buildObjectMesh(obj);
+  scene.add(g);
+  objMeshes.set(obj.id, g);
+}
+
+// House walls (simple visual)
+const wallMat = new THREE.MeshStandardMaterial({color:0x2a3a52,roughness:0.9,metalness:0,transparent:true,opacity:0.55,side:THREE.DoubleSide});
+const wallGeo = new THREE.BoxGeometry(0.18,2.4,18);
+[[-9,0],[ 9,0]].forEach(([x])=>{ const w=new THREE.Mesh(wallGeo,wallMat); w.position.set(x,1.2,0); scene.add(w); });
+const wallGeo2 = new THREE.BoxGeometry(18,2.4,0.18);
+[[ 0,0,-9],[0,0,9]].forEach(([x,y,z])=>{ const w=new THREE.Mesh(wallGeo2,wallMat); w.position.set(x,1.2,z); scene.add(w); });
+
+// Floor marker
+const floorMark = new THREE.Mesh(new THREE.PlaneGeometry(18,18),
+  new THREE.MeshStandardMaterial({color:0x1e2a20,roughness:0.95}));
+floorMark.rotation.x=-Math.PI/2; floorMark.position.y=0.001; scene.add(floorMark);
+floorMark.userData.isFloor=true;
+
+// ── Humanoid rigs ─────────────────────────────────────────────
+const rigMap  = new Map(); // charId -> rig
+const bubbles = new Map(); // charId -> DOM el
+const quantumOverlays = new Map();
+
+for(let i=0;i<world.characters.length;i++){
+  const ch = world.characters[i];
+  const info = CHARS[i];
+  const rig  = buildHumanoidMesh(info.color, info.accent);
+  rig.root.position.set(ch.pos.x, ch.pos.y, ch.pos.z);
+  scene.add(rig.root);
+  rigMap.set(ch.id, rig);
+
+  const bubble = createBubble(viewport);
+  bubbles.set(ch.id, bubble);
+
+  // quantum overlay floats above head
+  const qo = buildQuantumOverlay();
+  qo.position.set(ch.pos.x, 2.8, ch.pos.z);
+  qo.scale.setScalar(0.7);
+  scene.add(qo);
+  quantumOverlays.set(ch.id, qo);
+}
+
+// Ground mesh ref for raycasting
+const groundMesh = scene.children.find(c=>c.isMesh&&c.rotation.x<-1&&!c.userData.isFloor);
+
+// ── Input ─────────────────────────────────────────────────────
+const keys = {};
+window.addEventListener('keydown',e=>{ keys[e.code]=true;
+  if(e.code==='Tab'){ e.preventDefault(); cycleSelect(); }
+  if(e.code==='Space'){ e.preventDefault(); toggleAI(); }
+});
+window.addEventListener('keyup',e=>{ keys[e.code]=false; });
+
+function cycleSelect(){
+  const ids = world.characters.map(c=>c.id);
+  const cur = world._selectedId;
+  const idx = ids.indexOf(cur);
+  world.select(ids[(idx+1)%ids.length]);
+  updateCharList();
+}
+
+function toggleAI(){
+  const sel = world.selected;
+  if(!sel) return;
+  if(sel.aiController){ sel._savedAI=sel.aiController; sel.aiController=null; logEvent(`AI off — ${sel.name}`); }
+  else if(sel._savedAI){ sel.aiController=sel._savedAI; sel._savedAI=null; logEvent(`AI on — ${sel.name}`); }
+}
+
+canvas.addEventListener('click', e=>{
+  // 1. try character
+  const charId = pickCharacter(e, canvas, camera, rigMap);
+  if(charId != null){ world.select(charId); updateCharList(); updateMode(); return; }
+  // 2. try object
+  const objId = pickObject(e, canvas, camera, objMeshes);
+  if(objId != null){
+    const sel = world.selected;
+    if(sel){
+      const obj = world.objects.find(o=>o.id===objId);
+      if(obj && obj.state==='free'){
+        const ip = obj.interactPoint();
+        const path = world.nav.findPath(sel.pos, new Vec3(ip.x,0,ip.z));
+        sel.path = path; sel.pathTarget = new Vec3(ip.x,0,ip.z);
+        sel._pendingInteract = obj;
+        logEvent(`${sel.name} → ${obj.type}`);
+      }
+    }
+    return;
+  }
+  // 3. ground walk
+  if(world.selected){
+    const pt = pickGround(e, canvas, camera, groundMesh);
+    if(pt){ world.selected.navigateTo(new Vec3(pt.x,0,pt.z), world.nav); logEvent(`${world.selected.name} walks`); }
+  }
+});
+
+// ── UI ────────────────────────────────────────────────────────
+function updateCharList(){
+  const el = document.getElementById('char-list');
+  el.innerHTML='';
+  for(const ch of world.characters){
+    const card = document.createElement('div');
+    card.className='char-card'+(ch.selected?' selected':'');
+    card.dataset.id=ch.id;
+    const col='#'+ch.color.toString(16).padStart(6,'0');
+    card.innerHTML=`<div style="display:flex;align-items:center;gap:7px">
+      <div style="width:12px;height:12px;border-radius:50%;background:${col};flex-shrink:0"></div>
+      <div><div class="char-name">${ch.name}</div>
+      <div class="char-state">${ch.animState} · ${ch.aiController?'AI':'PLAYER'}</div></div>
+    </div>`;
+    card.addEventListener('click',()=>{ world.select(ch.id); updateCharList(); updateMode(); });
+    el.appendChild(card);
+  }
+}
+
+function buildObjPalette(){
+  const el = document.getElementById('obj-palette');
+  el.innerHTML='';
+  for(const [type,def] of Object.entries(OBJECT_DEFS)){
+    const btn = document.createElement('button');
+    btn.className='obj-btn';
+    const col='#'+def.color.toString(16).padStart(6,'0');
+    btn.innerHTML=`<span class="obj-chip" style="background:${col}"></span>${type}`;
+    btn.addEventListener('click',()=>{
+      pendingSpawn=type;
+      document.querySelectorAll('.obj-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      setMode('PLACE_OBJECT','click ground to place '+type);
+    });
+    el.appendChild(btn);
+  }
+}
+
+let pendingSpawn = null;
+let modeOverride = null;
+function setMode(label, hint){ document.getElementById('mode-label').textContent=label; document.getElementById('ctrl-hint').textContent=hint; modeOverride=label; }
+function updateMode(){
+  if(!modeOverride){
+    const sel=world.selected;
+    document.getElementById('mode-label').textContent= sel?'CONTROL':'SELECT';
+    document.getElementById('ctrl-hint').textContent= sel?`controlling ${sel.name} · WASD/click`:'click a character';
+  }
+}
+
+canvas.addEventListener('click', e=>{
+  if(pendingSpawn && modeOverride==='PLACE_OBJECT'){
+    const pt = pickGround(e, canvas, camera, groundMesh);
+    if(pt){
+      const obj = world.addObject(pendingSpawn, new Vec3(pt.x,0,pt.z));
+      const g = buildObjectMesh(obj);
+      scene.add(g); objMeshes.set(obj.id, g);
+      world.buildNav(); // rebuild nav with new obstacle
+      logEvent(`Placed ${pendingSpawn}`);
+    }
+    pendingSpawn=null; modeOverride=null;
+    document.querySelectorAll('.obj-btn').forEach(b=>b.classList.remove('active'));
+    updateMode();
+  }
+}, {capture:true}); // capture=true so this fires before the other click
+
+const events=[];
+function logEvent(msg){ events.unshift({t:world.t.toFixed(1), msg}); if(events.length>30) events.pop(); renderEvents(); }
+function renderEvents(){
+  const el=document.getElementById('event-log'); el.innerHTML='';
+  for(const ev of events.slice(0,12)){
+    const d=document.createElement('div'); d.className='event-row';
+    d.innerHTML=`<span>[${ev.t}s]</span> ${ev.msg}`;
+    el.appendChild(d);
+  }
+}
+
+// ── Main loop ─────────────────────────────────────────────────
+let lastTime=0, frameCount=0, fpsTimer=0;
+
+function resize(){
+  const w=viewport.clientWidth, h=viewport.clientHeight;
+  renderer.setSize(w,h,false);
+  camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize',resize); resize();
+
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt = Math.min((now-lastTime)/1000, 0.05); lastTime=now;
+  fpsTimer+=dt; frameCount++;
+  if(fpsTimer>1){ document.getElementById('fps-counter').textContent=Math.round(frameCount/fpsTimer)+' fps'; fpsTimer=0; frameCount=0; }
+
+  // WASD input → selected character
+  const sel = world.selected;
+  if(sel && !sel.interactingWith){
+    let dx=0, dz=0, run=keys['ShiftLeft']||keys['ShiftRight'];
+    if(keys['KeyW']||keys['ArrowUp'])    dz=-1;
+    if(keys['KeyS']||keys['ArrowDown'])  dz= 1;
+    if(keys['KeyA']||keys['ArrowLeft'])  dx=-1;
+    if(keys['KeyD']||keys['ArrowRight']) dx= 1;
+    if(dx||dz){
+      // rotate offset by camera yaw
+      const camY=controls.getAzimuthalAngle();
+      const rdx=dx*Math.cos(camY)+dz*Math.sin(camY);
+      const rdz=-dx*Math.sin(camY)+dz*Math.cos(camY);
+      sel.setMoveDir(rdx, rdz, run);
+      sel.path=[]; // override path
+    } else if(!sel.path.length){ sel.stopMoving(); }
+  }
+
+  // Tick world
+  world.tick(dt);
+
+  // Sync Three.js to world state
+  for(const ch of world.characters){
+    const rig = rigMap.get(ch.id);
+    if(!rig) continue;
+    rig.root.position.set(ch.pos.x, ch.pos.y, ch.pos.z);
+    rig.root.rotation.y = ch._smoothRot;
+    applySkeleton(rig, ch.skeleton);
+    rig.root.userData.ring.visible = ch.selected;
+
+    // Selection ring pulse
+    if(ch.selected){
+      rig.root.userData.ring.material.opacity = 0.5+Math.sin(now*0.004)*0.3;
+    }
+
+    // Quantum overlay
+    const qo = quantumOverlays.get(ch.id);
+    if(qo){
+      qo.position.set(ch.pos.x, 2.85, ch.pos.z);
+      qo.rotation.y += dt*0.9;
+      qo.children.forEach((v,i)=>{ v.material.opacity=0.35+Math.sin(now*0.002+i)*0.25; });
+    }
+
+    // Speech bubble
+    const bubble = bubbles.get(ch.id);
+    if(bubble){
+      const urgent = ch.needs.mostUrgent();
+      const action = ch.interactingWith ? `using ${ch.interactingWith.type}` :
+                     ch.path.length     ? `going to ${ch._pendingInteract?.type||'destination'}` : null;
+      if(action){ bubble.style.display='block'; bubble.textContent=action;
+        const wp=new THREE.Vector3(ch.pos.x,2.6,ch.pos.z);
+        updateBubblePos(bubble,wp,camera,renderer,viewport);
+      } else { bubble.style.display='none'; }
+    }
+  }
+
+  // Needs HUD for selected
+  renderNeedsHUD(document.getElementById('needs-content'), sel || null);
+  updateCharList();
+
+  // Quantum state panel
+  document.getElementById('qclock').textContent    = world.t.toFixed(0);
+  document.getElementById('qentities').textContent = world.characters.length + world.objects.length;
+  document.getElementById('qqubo').textContent     = (world.t%6<0.5)?'SOLVING':'IDLE';
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+// Init UI
+buildObjPalette();
+updateCharList();
+updateMode();
+world.select(world.characters[0].id);
+updateCharList();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
