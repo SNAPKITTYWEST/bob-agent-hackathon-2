@@ -1,130 +1,188 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "quantum_ir_schema.json",
+  "$id": "https://github.com/SNAPKITTYWEST/bob-agent-hackathon-2/ir/quantum_ir_schema.json",
   "title": "QuantumIR",
-  "description": "Shared quantum intermediate representation for multi-language quantum frontends. Version 0.1.0.",
-  "version": "0.1.0",
+  "description": "Shared Quantum Intermediate Representation — contract between Quipper (AGENT_01/BOB), Guppy/NETON (AGENT_02), and Yao.jl/PAX-CODER (AGENT_03). Version 0.1.0.",
   "type": "object",
-  "required": ["version", "source_lang", "qubits", "cbits", "ops", "metadata", "resources"],
+  "required": ["qubits", "cbits", "ops", "meta", "resources"],
+  "additionalProperties": false,
+
   "properties": {
-    "version": {
-      "type": "string",
-      "description": "Schema version, semver string",
-      "example": "0.1.0"
-    },
-    "source_lang": {
-      "type": "string",
-      "description": "Source language identifier (yao | quipper | guppy | qasm | etc.)"
-    },
+
     "qubits": {
       "type": "integer",
       "minimum": 1,
-      "description": "Total number of qubits in the circuit"
+      "description": "Total number of qubits in the circuit."
     },
+
+    "qubit_names": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional symbolic names for qubits, indexed 0..qubits-1. If absent, default names q0..q(N-1) apply."
+    },
+
     "cbits": {
       "type": "integer",
       "minimum": 0,
-      "description": "Total number of classical bits for measurement results"
+      "description": "Total number of classical bits (measurement targets)."
     },
+
     "ops": {
       "type": "array",
-      "description": "Flat sequential list of quantum operations",
+      "description": "Ordered sequence of quantum operations (program order).",
       "items": {
         "oneOf": [
-          {
-            "type": "object",
-            "required": ["type", "name", "params", "qubits"],
-            "properties": {
-              "type": {"type": "string", "enum": ["gate"]},
-              "name": {"type": "string", "description": "Gate name (H, X, Y, Z, T, S, Rx, Rz, CX, CCX, ...)"},
-              "params": {
-                "type": "array",
-                "items": {"type": "number"},
-                "description": "Gate rotation/phase parameters (radians)"
-              },
-              "qubits": {
-                "type": "array",
-                "items": {"type": "integer", "minimum": 0},
-                "description": "Qubit indices this gate acts on (0-indexed)"
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": ["type", "qubit", "cbit"],
-            "properties": {
-              "type": {"type": "string", "enum": ["measure"]},
-              "qubit": {"type": "integer", "minimum": 0},
-              "cbit":  {"type": "integer", "minimum": 0}
-            }
-          },
-          {
-            "type": "object",
-            "required": ["type", "qubits"],
-            "properties": {
-              "type": {"type": "string", "enum": ["barrier"]},
-              "qubits": {"type": "array", "items": {"type": "integer", "minimum": 0}}
-            }
-          },
-          {
-            "type": "object",
-            "required": ["type", "qubit"],
-            "properties": {
-              "type": {"type": "string", "enum": ["reset"]},
-              "qubit": {"type": "integer", "minimum": 0}
-            }
-          }
+          { "$ref": "#/definitions/GateOp" },
+          { "$ref": "#/definitions/MeasureOp" },
+          { "$ref": "#/definitions/BarrierOp" },
+          { "$ref": "#/definitions/ResetOp" }
         ]
       }
     },
-    "metadata": {
+
+    "meta": { "$ref": "#/definitions/IRMeta" },
+    "resources": { "$ref": "#/definitions/IRResources" }
+  },
+
+  "definitions": {
+
+    "GateOp": {
       "type": "object",
-      "required": ["source_lang", "version", "unsupported"],
+      "required": ["op", "name", "qubits"],
+      "additionalProperties": false,
       "properties": {
-        "source_lang": {"type": "string"},
-        "version": {"type": "string"},
-        "unsupported": {
+        "op":     { "type": "string", "const": "gate" },
+        "name":   {
+          "type": "string",
+          "description": "Gate name. Standard set: H, X, Y, Z, S, T, Sdg, Tdg, CX, CZ, CCX, SWAP, Rx, Ry, Rz, U1, U2, U3. Custom gates allowed.",
+          "examples": ["H", "CX", "T", "Rz", "CCX"]
+        },
+        "params": {
           "type": "array",
-          "items": {"type": "string"},
-          "description": "Explicit list of source-language semantics NOT representable in this IR. MUST NEVER be silently empty — list every semantic gap."
+          "items": { "type": "number" },
+          "description": "Gate angle parameters in radians (e.g. [pi/4] for T, [theta] for Rz(theta)). Empty list for non-parametric gates."
+        },
+        "qubits": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 },
+          "minItems": 1,
+          "description": "Qubit indices targeted by this gate, in gate-convention order (control before target for 2Q gates)."
         }
       }
     },
-    "resources": {
+
+    "MeasureOp": {
+      "type": "object",
+      "required": ["op", "qubit", "cbit"],
+      "additionalProperties": false,
+      "properties": {
+        "op":    { "type": "string", "const": "measure" },
+        "qubit": { "type": "integer", "minimum": 0, "description": "Qubit to measure." },
+        "cbit":  { "type": "integer", "minimum": 0, "description": "Classical bit to write result into." }
+      }
+    },
+
+    "BarrierOp": {
+      "type": "object",
+      "required": ["op", "qubits"],
+      "additionalProperties": false,
+      "properties": {
+        "op":     { "type": "string", "const": "barrier" },
+        "qubits": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 },
+          "minItems": 1,
+          "description": "Qubits over which the barrier is placed. Prevents gate commutation across this boundary."
+        }
+      }
+    },
+
+    "ResetOp": {
+      "type": "object",
+      "required": ["op", "qubit"],
+      "additionalProperties": false,
+      "properties": {
+        "op":    { "type": "string", "const": "reset" },
+        "qubit": { "type": "integer", "minimum": 0, "description": "Qubit to reset to |0>." }
+      }
+    },
+
+    "IRMeta": {
+      "type": "object",
+      "required": ["source_lang", "version", "unsupported"],
+      "additionalProperties": false,
+      "description": "Provenance and capability metadata. MANDATORY: unsupported MUST list every semantic feature that was dropped or approximated during lowering. An empty list means the source language was fully representable — not that the field was omitted.",
+      "properties": {
+        "source_lang": {
+          "type": "string",
+          "enum": ["quipper", "guppy", "yao"],
+          "description": "Originating language frontend."
+        },
+        "version": {
+          "type": "string",
+          "const": "0.1.0",
+          "description": "IR schema version."
+        },
+        "unsupported": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Explicit list of source-language semantics NOT representable in this IR instance. NEVER omit silently. If fully representable, set to []. Examples: 'higher-order circuit parameters', 'dynamic lifting (classical feedback)', 'linear-type enforcement'."
+        }
+      }
+    },
+
+    "IRResources": {
       "type": "object",
       "required": ["gate_count", "depth", "t_count", "width"],
+      "additionalProperties": false,
+      "description": "Static resource estimates for the circuit.",
       "properties": {
-        "gate_count": {"type": "integer", "minimum": 0, "description": "Total number of gate operations"},
-        "depth": {"type": "integer", "minimum": 0, "description": "Critical path depth (number of sequential layers)"},
-        "t_count": {"type": "integer", "minimum": 0, "description": "Number of T and T-dagger gates (fault-tolerance cost)"},
-        "width": {"type": "integer", "minimum": 1, "description": "Maximum number of qubits active simultaneously (= qubits for full circuits)"}
+        "gate_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of quantum gate operations (excludes measure, barrier, reset)."
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Critical-path depth: length of the longest chain of gates that must execute sequentially."
+        },
+        "t_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of T and Tdg gates. The primary resource in fault-tolerant compilation."
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Circuit width = qubit count. Redundant with top-level 'qubits' field; included here for self-contained resource records."
+        }
       }
     }
   },
+
   "examples": [
     {
-      "version": "0.1.0",
-      "source_lang": "yao",
       "qubits": 2,
+      "qubit_names": ["q0", "q1"],
       "cbits": 2,
       "ops": [
-        {"type": "gate", "name": "H", "params": [], "qubits": [0]},
-        {"type": "gate", "name": "CX", "params": [], "qubits": [0, 1]},
-        {"type": "measure", "qubit": 0, "cbit": 0},
-        {"type": "measure", "qubit": 1, "cbit": 1}
+        { "op": "gate",    "name": "H",  "params": [],  "qubits": [0] },
+        { "op": "gate",    "name": "CX", "params": [],  "qubits": [0, 1] },
+        { "op": "measure", "qubit": 0,  "cbit": 0 },
+        { "op": "measure", "qubit": 1,  "cbit": 1 }
       ],
-      "metadata": {
-        "source_lang": "yao",
+      "meta": {
+        "source_lang": "quipper",
         "version": "0.1.0",
         "unsupported": [
-          "KronBlock parallelism (serialized to sequential in QIR)",
-          "differentiable parameters (AD metadata not in QIR v0.1)",
-          "Yao.jl ChainBlock nesting (flattened)"
+          "higher-order circuit parameters (Quipper BoxedCircuit) — represented as flattened gate sequence",
+          "dynamic lifting (classical feedback) — measurement only"
         ]
       },
       "resources": {
         "gate_count": 2,
-        "depth": 3,
+        "depth": 2,
         "t_count": 0,
         "width": 2
       }
